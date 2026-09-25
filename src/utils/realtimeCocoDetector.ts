@@ -97,6 +97,8 @@ export interface LiveDetectedObject {
   stoppedDurationSec: number;
   hasTriggeredStoppedVehicle?: boolean;
   hasCrossedSolidLine?: boolean;
+  hasTriggeredRedLight?: boolean;
+  hasTriggeredStopLine?: boolean;
   // Collision & Proximity Alerts
   collisionRisk?: boolean;
   conflictWithId?: number;
@@ -784,6 +786,35 @@ class RealtimeNeuralVisionEngine {
               description: `Остановка на проезжей части > 10с (Транспорт #${track.id})`,
               involvedObjects: [`#${track.id} ${track.labelRu}`]
             });
+          }
+
+          // Red Light Running and Stop Line Crossing during RED Phase
+          const isSignalRed = this.trafficLightState === 'RED' || this.intersectionPhase.mainPhase === 'RED';
+          if (isSignalRed && !isPed && track.isMoving) {
+            // Vehicle crossing the stop-line area (y > 0.65) while moving forward on red light
+            if (wheelPoint.y > 0.65 && !track.hasTriggeredRedLight && track.speedKmh > 6) {
+              track.hasTriggeredRedLight = true;
+              this.addRawEvent({
+                id: `red_${track.id}_${Math.round(currentVideoTime * 10)}`,
+                start_sec: Math.max(0, currentVideoTime - 0.8),
+                end_sec: currentVideoTime + 2.5,
+                label: 'red_light',
+                confidence: 0.96,
+                description: `Проезд на запрещающий красный сигнал светофора (Транспорт #${track.id})`,
+                involvedObjects: [`#${track.id} ${track.labelRu}`]
+              });
+            } else if (wheelPoint.y > 0.62 && wheelPoint.y <= 0.68 && !track.hasTriggeredStopLine && track.speedKmh < 10) {
+              track.hasTriggeredStopLine = true;
+              this.addRawEvent({
+                id: `stopline_${track.id}_${Math.round(currentVideoTime * 10)}`,
+                start_sec: Math.max(0, currentVideoTime - 0.5),
+                end_sec: currentVideoTime + 1.8,
+                label: 'stop_line',
+                confidence: 0.92,
+                description: `Выезд за стоп-линию на запрещающий сигнал (Транспорт #${track.id})`,
+                involvedObjects: [`#${track.id} ${track.labelRu}`]
+              });
+            }
           }
 
           // Status determination

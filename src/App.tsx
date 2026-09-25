@@ -17,10 +17,14 @@ export default function App() {
         setLang={setLang}
       />
 
-      {/* Main Content Area */}
+      {/* Main Content Area - Keep components mounted so video playback and canvas do not reset on tab switch */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {activeTab === 'demo' && <LiveDemo lang={lang} />}
-        {activeTab === 'team' && <TeamSection lang={lang} />}
+        <div className={activeTab === 'demo' ? 'block' : 'hidden'}>
+          <LiveDemo lang={lang} />
+        </div>
+        <div className={activeTab === 'team' ? 'block' : 'hidden'}>
+          <TeamSection lang={lang} />
+        </div>
       </main>
 
       {/* Simple Clean Footer */}
