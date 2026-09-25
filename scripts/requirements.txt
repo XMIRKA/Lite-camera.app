@@ -1,0 +1,27 @@
+# Core Computer Vision & Deep Learning Frameworks
+ultralytics>=8.3.0
+torch>=2.2.0
+torchvision>=0.17.0
+opencv-python-headless>=4.9.0
+supervision>=0.22.0
+
+# Multi-Object Tracking & Kinematics
+lapx>=0.5.5
+filterpy>=1.4.5
+scipy>=1.12.0
+numpy>=1.26.0
+shapely>=2.0.3
+
+# Web Dashboard & Streamlit UI
+streamlit>=1.35.0
+pandas>=2.2.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+plotly>=5.22.0
+
+# Model Export & Edge Deployment
+onnx>=1.16.0
+onnxruntime>=1.17.0
+pyyaml>=6.0.1
+tqdm>=4.66.0
+requests>=2.31.0
