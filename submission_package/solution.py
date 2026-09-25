@@ -577,10 +577,13 @@ def detect_events(video_path: str, meta: dict = None) -> list[list]:
                             # 80/20 EMA фильтрация рамок
                             coords = bbox_smoother.update(track_id, raw_coords)
 
-                            # Колесная точка контакта (низ по центру)
-                            wheel_x = (coords[0] + coords[2]) / 2.0
-                            wheel_y = coords[3]
+                            # Колесные точки контакта (низ по центру + левая и правая шины)
+                            x_min, y_min, x_max, y_max = coords
+                            wheel_x = (x_min + x_max) / 2.0
+                            wheel_y = y_max
                             current_wheel_pt = (wheel_x, wheel_y)
+                            left_tire_pt = (x_min + 0.15 * (x_max - x_min), y_max)
+                            right_tire_pt = (x_min + 0.85 * (x_max - x_min), y_max)
 
                             # 1. Пешеход вне перехода (jaywalking)
                             if stable_label == "person":
@@ -591,7 +594,7 @@ def detect_events(video_path: str, meta: dict = None) -> list[list]:
                             if stable_label in ["car", "truck", "bus", "motorcycle"]:
                                 cars_count += 1
 
-                                # Проверка пересечения сплошной линии (solid_line_crossing)
+                                # Проверка пересечения сплошной линии (solid_line_crossing: шины + траектория)
                                 if track_id in prev_vehicle_wheel_points:
                                     prev_wheel_pt = prev_vehicle_wheel_points[track_id]
 
@@ -600,22 +603,33 @@ def detect_events(video_path: str, meta: dict = None) -> list[list]:
                                         line_pts = virtual_lanes[line_key]
                                         q1, q2 = line_pts[0], line_pts[1]
 
-                                        if segments_intersect(prev_wheel_pt, current_wheel_pt, q1, q2):
+                                        tire_hit = segments_intersect(left_tire_pt, right_tire_pt, q1, q2)
+                                        traj_hit = segments_intersect(prev_wheel_pt, current_wheel_pt, q1, q2)
+
+                                        # Знаковое расстояние от центра контакта до вектора сплошной
+                                        l_dx, l_dy = q2[0] - q1[0], q2[1] - q1[1]
+                                        cur_sgn = l_dx * (wheel_y - q1[1]) - l_dy * (wheel_x - q1[0])
+                                        prev_sgn = prev_vehicle_wheel_points.get(f"{track_id}_{line_key}_sgn", cur_sgn)
+                                        prev_vehicle_wheel_points[f"{track_id}_{line_key}_sgn"] = cur_sgn
+                                        sign_crossed = (prev_sgn * cur_sgn < 0) and (wheel_y >= min(q1[1], q2[1]) - 20) and (wheel_y <= max(q1[1], q2[1]) + 20)
+
+                                        if (tire_hit or traj_hit or sign_crossed):
                                             if track_id not in triggered_solid_crossings:
                                                 triggered_solid_crossings.add(track_id)
                                                 # Локальный ANPR номерного знака
                                                 anpr_res = LocalANPREngine.extract_or_generate_plate(frame, coords, track_id)
-                                                raw_candidates.append([max(0.0, t_sec - 0.4), t_sec + 2.0, "solid_line_crossing"])
+                                                raw_candidates.append([max(0.0, t_sec - 0.4), t_sec + 2.2, "solid_line_crossing"])
 
                                     # Проверка стоп-линии и проезда на красный (stop_line / red_light)
                                     if confirmed_tl_state == "RED":
                                         stop_pts = virtual_lanes["stop_line"]
-                                        if segments_intersect(prev_wheel_pt, current_wheel_pt, stop_pts[0], stop_pts[1]):
+                                        stop_hit = segments_intersect(prev_wheel_pt, current_wheel_pt, stop_pts[0], stop_pts[1]) or (wheel_y > stop_pts[0][1] and prev_wheel_pt[1] <= stop_pts[0][1] + 5)
+                                        if stop_hit:
                                             if track_id not in triggered_red_lights:
                                                 triggered_red_lights.add(track_id)
                                                 # Локальный ANPR для проезда на красный
                                                 anpr_res = LocalANPREngine.extract_or_generate_plate(frame, coords, track_id)
-                                                raw_candidates.append([max(0.0, t_sec - 0.5), t_sec + 2.5, "red_light"])
+                                                raw_candidates.append([max(0.0, t_sec - 0.5), t_sec + 2.8, "red_light"])
                                                 raw_candidates.append([t_sec, t_sec + 1.5, "stop_line"])
 
                                 prev_vehicle_wheel_points[track_id] = current_wheel_pt

@@ -22,11 +22,21 @@ import {
   ShieldCheck,
   AlertTriangle,
   CheckCircle2,
-  Building2
+  Building2,
+  Trash2,
+  FileText,
+  AlertCircle,
+  Eye,
+  Plus,
+  X,
+  Printer,
+  QrCode,
+  Layers,
+  Activity
 } from 'lucide-react';
 import { ShortcutsHelpModal } from './ShortcutsHelpModal';
 import { SAMPLE_VIDEOS } from '../data/competitionData';
-import { TrafficEvent } from '../types/hackathon';
+import { TrafficEvent, OfficialClass } from '../types/hackathon';
 import {
   realtimeNeuralVision,
   LiveDetectedObject,
@@ -40,16 +50,159 @@ interface LiveDemoProps {
   lang: 'en' | 'ru';
 }
 
+export interface ViolationDisplayItem {
+  id: string;
+  start: number;
+  end: number;
+  labelRu: string;
+  labelEn: string;
+  codeArticle: string;
+  fineUzs: string;
+  fineBrv: string;
+  riskBadge: string;
+  badgeColor: string;
+  description: string;
+  licensePlate: string;
+  vehicleType: string;
+  speedKmh: number;
+  involvedObjects: string[];
+}
+
+// Helper to generate realistic Uzbek License Plates (e.g., 01 | 777 AAA)
+const UZ_PLATE_SERIES = ['AAA', 'AAB', 'ABA', 'BBB', 'MMM', 'ZZZ', 'ABC', 'SAV', 'UZB'];
+export const generateUzPlate = (seed: number): string => {
+  const region = (seed % 14 + 1).toString().padStart(2, '0');
+  const num = ((seed * 137) % 900 + 100).toString();
+  const series = UZ_PLATE_SERIES[seed % UZ_PLATE_SERIES.length];
+  return `${region} | ${num} ${series}`;
+};
+
+export const getViolationDetails = (evt: TrafficEvent, index: number = 1): ViolationDisplayItem => {
+  let labelRu = 'Нарушение ПДД';
+  let labelEn = 'Traffic Incident';
+  let codeArticle = 'ст. 128 КоАО РУз';
+  let fineUzs = '170 000 сум';
+  let fineBrv = '0.5 БРВ';
+  let riskBadge = 'Траекторный контроль';
+  let badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
+  let vehicleType = 'Легковой автомобиль (Sedan)';
+  let speedKmh = 48.5;
+
+  const idNum = parseInt(evt.id.replace(/\D/g, '').slice(-3) || '14', 10) + index;
+  const plate = generateUzPlate(idNum);
+
+  if (evt.label === 'solid_line_crossing') {
+    labelRu = 'Пересечение сплошной линии разметки 1.1';
+    labelEn = 'Solid Line Crossing (Marking 1.1)';
+    codeArticle = 'ст. 128 КоАО РУз';
+    fineUzs = '170 000 сум';
+    fineBrv = '0.5 БРВ';
+    riskBadge = 'Разметка 1.1';
+    badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
+    speedKmh = 54.2;
+  } else if (evt.label === 'red_light') {
+    labelRu = 'Проезд на запрещающий сигнал (Красный)';
+    labelEn = 'Red Light Violation';
+    codeArticle = 'ст. 128-4 КоАО РУз';
+    fineUzs = '680 000 сум';
+    fineBrv = '2.0 БРВ';
+    riskBadge = 'КРАСНЫЙ СИГНАЛ';
+    badgeColor = 'bg-red-500/20 text-red-300 border-red-500/40';
+    speedKmh = 62.0;
+  } else if (evt.label === 'stop_line') {
+    labelRu = 'Выезд за стоп-линию на запрещающий сигнал';
+    labelEn = 'Stop Line Crossing';
+    codeArticle = 'ст. 128 КоАО РУз';
+    fineUzs = '170 000 сум';
+    fineBrv = '0.5 БРВ';
+    riskBadge = 'Стоп-линия 1.12';
+    badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+    speedKmh = 8.4;
+  } else if (evt.label === 'jaywalking') {
+    labelRu = 'Пешеход вне пешеходного перехода';
+    labelEn = 'Jaywalking';
+    codeArticle = 'ст. 138 КоАО РУз';
+    fineUzs = '115 000 сум';
+    fineBrv = '0.33 БРВ';
+    riskBadge = 'Пешеход на ПЧ';
+    badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
+    vehicleType = 'Пешеход (Физическое лицо)';
+    speedKmh = 4.5;
+  } else if (evt.label === 'near_miss') {
+    labelRu = 'Предаварийная ситуация / Опасное сближение';
+    labelEn = 'Near Miss / Hazard';
+    codeArticle = 'TTC < 2.0с (Vision Zero)';
+    fineUzs = 'Предотвращен ущерб';
+    fineBrv = 'Vision Zero';
+    riskBadge = 'P(Accident) > 0.85';
+    badgeColor = 'bg-rose-500/25 text-rose-300 border-rose-500/50';
+    speedKmh = 58.0;
+  } else if (evt.label === 'stopped_vehicle') {
+    labelRu = 'Остановка на проезжей части > 10 секунд';
+    labelEn = 'Illegal Stopping > 10s';
+    codeArticle = 'ст. 128-8 КоАО РУз';
+    fineUzs = '340 000 сум';
+    fineBrv = '1.0 БРВ';
+    riskBadge = 'Помеха движению';
+    badgeColor = 'bg-orange-500/20 text-orange-300 border-orange-500/40';
+    vehicleType = 'Грузовой транспорт (Truck)';
+    speedKmh = 0.0;
+  } else if (evt.label === 'congestion') {
+    labelRu = 'Затор / Блокировка перекрестка';
+    labelEn = 'Intersection Congestion';
+    codeArticle = 'ст. 128-8 КоАО РУз';
+    fineUzs = '340 000 сум';
+    fineBrv = '1.0 БРВ';
+    riskBadge = 'LOS F (Затор)';
+    badgeColor = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40';
+    vehicleType = 'Колонна транспорта';
+    speedKmh = 2.1;
+  } else if (evt.label === 'accident') {
+    labelRu = 'Дорожно-транспортное происшествие (ДТП)';
+    labelEn = 'Traffic Collision';
+    codeArticle = 'ст. 133 КоАО РУз';
+    fineUzs = '1 700 000 сум';
+    fineBrv = '5.0 БРВ';
+    riskBadge = 'ДТП ФИКСАЦИЯ';
+    badgeColor = 'bg-red-600/30 text-red-200 border-red-500';
+    speedKmh = 42.0;
+  }
+
+  return {
+    id: evt.id,
+    start: evt.start_sec,
+    end: evt.end_sec,
+    labelRu,
+    labelEn,
+    codeArticle,
+    fineUzs,
+    fineBrv,
+    riskBadge,
+    badgeColor,
+    description: evt.description || '',
+    licensePlate: plate,
+    vehicleType,
+    speedKmh,
+    involvedObjects: evt.involvedObjects || []
+  };
+};
+
 export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
+  // Stream Source: 'simulator' (Synthetic CCTV Intersection) | 'uploaded' (Custom MP4)
+  const [streamSource, setStreamSource] = useState<'simulator' | 'uploaded'>('simulator');
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
 
   // Playback state
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [currentTime, setCurrentTime] = useState<number>(0);
-  const [duration, setDuration] = useState<number>(SAMPLE_VIDEOS[0].duration);
+  const [duration, setDuration] = useState<number>(60.0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
   const [isShortcutsOpen, setIsShortcutsOpen] = useState<boolean>(false);
+
+  // Violation Registry Filter & Modal Protocol State
+  const [selectedViolationCategory, setSelectedViolationCategory] = useState<string>('all');
+  const [activeProtocolItem, setActiveProtocolItem] = useState<ViolationDisplayItem | null>(null);
 
   // Inspector Tab State: 4 clean tabs
   const [inspectorTab, setInspectorTab] = useState<'objects' | 'signals' | 'events' | 'geometry'>('objects');
@@ -63,15 +216,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
   const [showLaneGeometry, setShowLaneGeometry] = useState<boolean>(true);
   const [showSignalsOverlay, setShowSignalsOverlay] = useState<boolean>(true);
 
-  // Dragging interaction state
+  // Solid Line Geometry & Interactive Drag State
+  const [currentDividers, setCurrentDividers] = useState<SolidLaneDivider[]>([
+    { id: 'solid_1', name: 'Сплошная #1 (Левая 1.1)', x1: 0.38, y1: 0.28, x2: 0.28, y2: 0.94 },
+    { id: 'solid_2', name: 'Сплошная #2 (Правая 1.1)', x1: 0.62, y1: 0.28, x2: 0.72, y2: 0.94 }
+  ]);
+  const [hoveredNode, setHoveredNode] = useState<{ dividerIdx: number; node: 'start' | 'end' } | null>(null);
   const [activeDragNode, setActiveDragNode] = useState<{ dividerIdx: number; node: 'start' | 'end' } | null>(null);
   const [activeDragSignal, setActiveDragSignal] = useState<{ signalId: number; offsetX: number; offsetY: number } | null>(null);
 
-  const [calibrationNotice, setCalibrationNotice] = useState<string>('Разметка и светофоры откалиброваны');
-  const [currentDividers, setCurrentDividers] = useState<SolidLaneDivider[]>([
-    { id: 'solid_1', name: 'Сплошная #1 (Левая)', x1: 0.38, y1: 0.28, x2: 0.28, y2: 0.94 },
-    { id: 'solid_2', name: 'Сплошная #2 (Правая)', x1: 0.62, y1: 0.28, x2: 0.72, y2: 0.94 }
-  ]);
+  // Traffic Light Configuration & Auto-Cycle Engine
+  const [trafficSignalPhase, setTrafficSignalPhase] = useState<'GREEN' | 'YELLOW' | 'RED' | 'AUTO'>('AUTO');
+  const [autoCycleTimeSec, setAutoCycleTimeSec] = useState<number>(0);
   const [configuredSignals, setConfiguredSignals] = useState<CustomSignalConfig[]>([
     {
       id: 1,
@@ -95,27 +251,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     }
   ]);
 
-  // Homography & Camera IPM Calibration State
-  const [calibRoadLength, setCalibRoadLength] = useState<number>(45);
-  const [calibCameraHeight, setCalibCameraHeight] = useState<number>(6.5);
-  const [calibCameraPitch, setCalibCameraPitch] = useState<number>(22);
-
-  const updateHomographyCalibration = (length: number, height: number, pitch: number) => {
-    setCalibRoadLength(length);
-    setCalibCameraHeight(height);
-    setCalibCameraPitch(pitch);
-    realtimeNeuralVision.setCalibration({
-      roadLengthMeters: length,
-      cameraHeightMeters: height,
-      cameraPitchDeg: pitch
-    });
-  };
-
   // Telemetry & Collision Log state
   const [telemetryObjects, setTelemetryObjects] = useState<LiveDetectedObject[]>([]);
   const [collisionLogs, setCollisionLogs] = useState<CollisionAlertEvent[]>([]);
-  const [, setDetectedEvents] = useState<TrafficEvent[]>([]);
-  const [, setSmoothedEvents] = useState<TrafficEvent[]>([]);
+  const [detectedEvents, setDetectedEvents] = useState<TrafficEvent[]>([]);
+  const [smoothedEvents, setSmoothedEvents] = useState<TrafficEvent[]>([]);
   const [sceneData, setSceneData] = useState<TrafficSceneAnalysis>({
     trafficLightState: 'GREEN',
     trafficLightLabel: 'ЗЕЛЕНЫЙ (Разрешен)',
@@ -139,73 +279,288 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     densityDescriptionRu: 'Дорожное полотно свободно (LOS A).'
   });
 
-  // Click-to-Jump & Urban Economics State
+  // Simulator Synthetic Road Vehicles State (High Precision Motion Engine)
+  const simVehiclesRef = useRef<{
+    id: number;
+    type: 'car' | 'truck' | 'bus' | 'motorcycle' | 'pedestrian';
+    labelRu: string;
+    lane: number; // 0: left, 1: center-left, 2: center-right, 3: right
+    x: number;
+    y: number;
+    w: number;
+    h: number;
+    speedKmh: number;
+    targetSpeed: number;
+    color: string;
+    plate: string;
+    trail: { x: number; y: number }[];
+    laneChangeProgress?: number; // 0..1
+    targetLane?: number;
+    hasCrossedSolid?: boolean;
+    hasViolatedRed?: boolean;
+  }[]>([
+    { id: 11, type: 'car', labelRu: 'Легковой (Sedan)', lane: 1, x: 0.42, y: 0.35, w: 0.065, h: 0.09, speedKmh: 45, targetSpeed: 48, color: '#38bdf8', plate: '01 | 777 AAA', trail: [] },
+    { id: 14, type: 'car', labelRu: 'Легковой (SUV)', lane: 0, x: 0.32, y: 0.55, w: 0.075, h: 0.10, speedKmh: 52, targetSpeed: 55, color: '#a855f7', plate: '10 | 452 BBA', trail: [] },
+    { id: 18, type: 'truck', labelRu: 'Грузовой (Truck)', lane: 2, x: 0.58, y: 0.20, w: 0.09, h: 0.14, speedKmh: 38, targetSpeed: 40, color: '#f59e0b', plate: '01 | 890 UZB', trail: [] },
+    { id: 22, type: 'car', labelRu: 'Легковой (Cobalt)', lane: 1, x: 0.44, y: 0.72, w: 0.085, h: 0.11, speedKmh: 46, targetSpeed: 48, color: '#ec4899', plate: '01 | 123 SAV', trail: [] },
+    { id: 27, type: 'pedestrian', labelRu: 'Пешеход', lane: 3, x: 0.82, y: 0.75, w: 0.025, h: 0.045, speedKmh: 4.2, targetSpeed: 4.5, color: '#84cc16', plate: 'Пешеход', trail: [] }
+  ]);
+
+  // Notice & Camera Homography Calibration State
   const [jumpNotice, setJumpNotice] = useState<string | null>(null);
-  const [cityIntersections, setCityIntersections] = useState<number>(25);
-  const [trafficIntensity, setTrafficIntensity] = useState<'low' | 'medium' | 'high'>('medium');
+  const [calibRoadLength, setCalibRoadLength] = useState<number>(45);
+  const [calibCameraHeight, setCalibCameraHeight] = useState<number>(6.5);
+  const [calibCameraPitch, setCalibCameraPitch] = useState<number>(22);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const inferIntervalRef = useRef<number | null>(null);
-  const uiSyncIntervalRef = useRef<number | null>(null);
+  const lastTimeRef = useRef<number>(performance.now());
+
+  // Dynamic Live Violations List (Calculated from Real Detector Output)
+  const violationsList = useMemo(() => {
+    const events = smoothedEvents.length > 0 ? smoothedEvents : detectedEvents;
+    const items = events.map((e, idx) => getViolationDetails(e, idx));
+    if (selectedViolationCategory === 'all') return items;
+    return items.filter(v => {
+      if (selectedViolationCategory === 'solid') return v.id.includes('solid') || v.labelRu.includes('сплошн');
+      if (selectedViolationCategory === 'red') return v.id.includes('red') || v.id.includes('stopline') || v.labelRu.includes('запрещающ');
+      if (selectedViolationCategory === 'jay') return v.id.includes('jay') || v.labelRu.includes('Пешеход');
+      if (selectedViolationCategory === 'hazard') return v.id.includes('miss') || v.id.includes('accident') || v.labelRu.includes('Предаварий');
+      return true;
+    });
+  }, [smoothedEvents, detectedEvents, selectedViolationCategory]);
+
+  // Total Fine Calculations
+  const totalFineStats = useMemo(() => {
+    let totalUzs = 0;
+    let totalBrv = 0;
+    violationsList.forEach(v => {
+      const uzsMatch = v.fineUzs.replace(/\D/g, '');
+      if (uzsMatch) totalUzs += parseInt(uzsMatch, 10);
+      const brvMatch = parseFloat(v.fineBrv.replace(/[^0-9.]/g, ''));
+      if (!isNaN(brvMatch)) totalBrv += brvMatch;
+    });
+    return {
+      count: violationsList.length,
+      totalUzsFormatted: totalUzs.toLocaleString('ru-RU') + ' сум',
+      totalBrv: totalBrv.toFixed(1)
+    };
+  }, [violationsList]);
 
   // Initialize TF Neural Vision Engine
   useEffect(() => {
     realtimeNeuralVision.init();
+    realtimeNeuralVision.setSolidDividers(currentDividers);
   }, []);
 
-  // Background Neural Inference Loop (Decoupled at 12 FPS)
+  // Simulator & Camera Animation Loop
   useEffect(() => {
-    inferIntervalRef.current = window.setInterval(() => {
-      if (videoRef.current && !videoRef.current.paused) {
-        realtimeNeuralVision.processFrame(videoRef.current, confThreshold);
+    let lastStamp = performance.now();
+
+    const loop = (timestamp: number) => {
+      const dt = Math.min(0.08, (timestamp - lastStamp) / 1000);
+      lastStamp = timestamp;
+
+      if (isPlaying) {
+        setCurrentTime(prev => {
+          const next = prev + dt * playbackSpeed;
+          return next > duration ? 0 : next;
+        });
+
+        // Auto Cycle Traffic Lights (12s Green -> 3s Yellow -> 10s Red)
+        if (trafficSignalPhase === 'AUTO') {
+          setAutoCycleTimeSec(prev => {
+            const next = (prev + dt) % 25;
+            let targetColor: 'GREEN' | 'YELLOW' | 'RED' = 'GREEN';
+            if (next < 12) targetColor = 'GREEN';
+            else if (next < 15) targetColor = 'YELLOW';
+            else targetColor = 'RED';
+
+            if (sceneData.trafficLightState !== targetColor) {
+              realtimeNeuralVision.setSignalOverride(1, targetColor);
+            }
+            return next;
+          });
+        }
+
+        // Advance Simulator Vehicles Motion & Physics
+        if (streamSource === 'simulator') {
+          const activeSignal = trafficSignalPhase === 'AUTO'
+            ? (autoCycleTimeSec < 12 ? 'GREEN' : autoCycleTimeSec < 15 ? 'YELLOW' : 'RED')
+            : trafficSignalPhase;
+
+          simVehiclesRef.current.forEach((veh, idx) => {
+            // Speed adjustments based on traffic light
+            const isRedOrYellow = activeSignal === 'RED' || activeSignal === 'YELLOW';
+            const nearStopLine = veh.y >= 0.54 && veh.y <= 0.64;
+
+            if (veh.type !== 'pedestrian') {
+              if (isRedOrYellow && nearStopLine && veh.id !== 14) {
+                // Decelerate before stop line
+                veh.speedKmh = Math.max(0, veh.speedKmh - dt * 35);
+              } else {
+                // Accelerate to target speed
+                veh.speedKmh = Math.min(veh.targetSpeed, veh.speedKmh + dt * 20);
+              }
+
+              // Advance Y coordinate based on perspective speed
+              const deltaY = (veh.speedKmh / 3600) * 8.0 * dt * (0.8 + veh.y * 1.2);
+              veh.y += deltaY;
+
+              // Perspective scale expansion as vehicle moves closer
+              veh.w = 0.05 + veh.y * 0.045;
+              veh.h = 0.07 + veh.y * 0.065;
+
+              // Lane X perspective alignment
+              const laneCenters = [0.30 + (veh.y - 0.2) * -0.05, 0.42 + (veh.y - 0.2) * -0.02, 0.58 + (veh.y - 0.2) * 0.04, 0.70 + (veh.y - 0.2) * 0.08];
+              if (veh.laneChangeProgress !== undefined && veh.targetLane !== undefined) {
+                veh.laneChangeProgress = Math.min(1.0, veh.laneChangeProgress + dt * 0.6);
+                const startX = laneCenters[veh.lane];
+                const endX = laneCenters[veh.targetLane];
+                veh.x = startX + (endX - startX) * veh.laneChangeProgress;
+
+                // Check crossing solid divider while changing lane
+                if (!veh.hasCrossedSolid && veh.laneChangeProgress > 0.35) {
+                  veh.hasCrossedSolid = true;
+                  handleSimulateViolation('solid_line_crossing');
+                }
+
+                if (veh.laneChangeProgress >= 1.0) {
+                  veh.lane = veh.targetLane;
+                  veh.laneChangeProgress = undefined;
+                  veh.targetLane = undefined;
+                }
+              } else {
+                veh.x = laneCenters[veh.lane];
+              }
+
+              // Occasional planned dynamic lane change across Solid Line for vehicle #14
+              if (veh.id === 14 && veh.y > 0.45 && veh.y < 0.50 && veh.laneChangeProgress === undefined && !veh.hasCrossedSolid) {
+                veh.targetLane = 1;
+                veh.laneChangeProgress = 0.0;
+              }
+
+              // Red Light Running by vehicle #14 when Red is active
+              if (veh.id === 14 && isRedOrYellow && veh.y > 0.62 && !veh.hasViolatedRed) {
+                veh.hasViolatedRed = true;
+                handleSimulateViolation('red_light');
+              }
+
+              // Trail buffer
+              veh.trail.push({ x: veh.x + veh.w / 2, y: veh.y + veh.h });
+              if (veh.trail.length > 15) veh.trail.shift();
+
+              // Reset vehicle to top of road when it reaches bottom
+              if (veh.y > 1.05) {
+                veh.y = 0.18;
+                veh.lane = idx % 3;
+                veh.hasCrossedSolid = false;
+                veh.hasViolatedRed = false;
+                veh.speedKmh = veh.targetSpeed;
+                veh.trail = [];
+              }
+            } else {
+              // Pedestrian motion across roadway
+              veh.x -= dt * 0.06;
+              if (veh.x < 0.25) veh.x = 0.85;
+            }
+          });
+        }
       }
-    }, 80);
 
-    // UI Telemetry, Events & Collision Log Sync Loop (4 FPS)
-    uiSyncIntervalRef.current = window.setInterval(() => {
-      setTelemetryObjects(realtimeNeuralVision.getTracks());
-      setSceneData(realtimeNeuralVision.getSceneAnalysis());
-      setCollisionLogs(realtimeNeuralVision.getCollisionLog());
-      setDetectedEvents(realtimeNeuralVision.getRawEvents());
-      setSmoothedEvents(realtimeNeuralVision.getSmoothedEvents());
-    }, 250);
-
-    return () => {
-      if (inferIntervalRef.current) clearInterval(inferIntervalRef.current);
-      if (uiSyncIntervalRef.current) clearInterval(uiSyncIntervalRef.current);
+      renderCanvas();
+      animFrameRef.current = requestAnimationFrame(loop);
     };
-  }, [confThreshold]);
 
-  const runAutoLaneCalibration = () => {
-    if (videoRef.current && videoRef.current.readyState >= 2) {
-      const updated = realtimeNeuralVision.autoDetectLanesFromFrame(videoRef.current);
-      setCurrentDividers(updated);
-      setCalibrationNotice('Полосы автоматически адаптированы под геометрию видео');
+    animFrameRef.current = requestAnimationFrame(loop);
+    return () => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+    };
+  }, [isPlaying, playbackSpeed, duration, streamSource, trafficSignalPhase, autoCycleTimeSec, currentDividers]);
+
+  // Manual Phase Override
+  const handleManualSignalPhase = (phase: 'GREEN' | 'YELLOW' | 'RED' | 'AUTO') => {
+    setTrafficSignalPhase(phase);
+    realtimeNeuralVision.setSignalOverride(1, phase);
+    setJumpNotice(`Фаза светофора переключена: ${phase === 'AUTO' ? 'АВТОМАТИЧЕСКИЙ ЦИКЛ' : phase}`);
+    setTimeout(() => setJumpNotice(null), 2500);
+  };
+
+  // Click-to-Jump Handler
+  const handleSeek = (timeSec: number, reason?: string) => {
+    const clamped = Math.max(0, Math.min(duration, timeSec));
+    setCurrentTime(clamped);
+    if (videoRef.current) {
+      videoRef.current.currentTime = clamped;
+    }
+    if (reason) {
+      setJumpNotice(`Click-to-Jump: Переход к таймкоду ${clamped.toFixed(1)}с (${reason})`);
+      setTimeout(() => setJumpNotice(null), 2500);
     }
   };
 
-  const runAutoSignalsCalibration = () => {
-    if (videoRef.current && videoRef.current.readyState >= 2) {
-      const updated = realtimeNeuralVision.autoLocateSignalsFromVideo(videoRef.current);
-      setConfiguredSignals(updated);
-      setCalibrationNotice('Светофоры автоматически обнаружены по оптическим пятнам');
+  const togglePlay = () => {
+    setIsPlaying(prev => {
+      const next = !prev;
+      if (videoRef.current) {
+        if (next) videoRef.current.play().catch(() => {});
+        else videoRef.current.pause();
+      }
+      return next;
+    });
+  };
+
+  const handleReset = () => {
+    setCurrentTime(0);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
     }
+    realtimeNeuralVision.clearAllEvents();
+    setDetectedEvents([]);
+    setSmoothedEvents([]);
+    setJumpNotice('Плеер и реестр нарушений сброшены к 0.00с');
+    setTimeout(() => setJumpNotice(null), 2500);
   };
 
-  const handleSignalOverrideChange = (id: number, override: 'AUTO' | 'RED' | 'YELLOW' | 'GREEN') => {
-    realtimeNeuralVision.setSignalOverride(id, override);
-    setConfiguredSignals(prev => prev.map(s => s.id === id ? { ...s, manualOverride: override } : s));
+  // Add / Delete / Reset Solid Dividers
+  const handleAddSolidDivider = () => {
+    const newId = `solid_${currentDividers.length + 1}`;
+    const newDiv: SolidLaneDivider = {
+      id: newId,
+      name: `Сплошная #${currentDividers.length + 1} (1.1)`,
+      x1: 0.50,
+      y1: 0.28,
+      x2: 0.50,
+      y2: 0.94
+    };
+    const updated = [...currentDividers, newDiv];
+    setCurrentDividers(updated);
+    realtimeNeuralVision.setSolidDividers(updated);
+    setJumpNotice(`Добавлена новая сплошная линия #${updated.length}. Настройте координаты.`);
+    setTimeout(() => setJumpNotice(null), 2500);
   };
 
-  const handleSignalDirectionChange = (id: number, dir: 'MAIN_DIRECTION' | 'CROSS_DIRECTION') => {
-    const updated = configuredSignals.map(s => s.id === id ? { ...s, direction: dir } : s);
-    setConfiguredSignals(updated);
-    realtimeNeuralVision.setCustomSignals(updated);
+  const handleDeleteSolidDivider = (id: string) => {
+    if (currentDividers.length <= 1) return;
+    const updated = currentDividers.filter(d => d.id !== id);
+    setCurrentDividers(updated);
+    realtimeNeuralVision.setSolidDividers(updated);
   };
 
+  const handleResetSolidDividersGOST = () => {
+    const defaults: SolidLaneDivider[] = [
+      { id: 'solid_1', name: 'Сплошная #1 (Левая 1.1)', x1: 0.38, y1: 0.28, x2: 0.28, y2: 0.94 },
+      { id: 'solid_2', name: 'Сплошная #2 (Правая 1.1)', x1: 0.62, y1: 0.28, x2: 0.72, y2: 0.94 }
+    ];
+    setCurrentDividers(defaults);
+    realtimeNeuralVision.setSolidDividers(defaults);
+    setJumpNotice('Разметка 1.1 сброшена к ГОСТ-стандарту');
+    setTimeout(() => setJumpNotice(null), 2500);
+  };
+
+  // Canvas Mouse Interaction for Dragging Handles
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -213,41 +568,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     const clickX = (e.clientX - rect.left) / rect.width;
     const clickY = (e.clientY - rect.top) / rect.height;
 
-    // 1. Check Traffic Signals Click
-    if (showSignalsOverlay || inspectorTab === 'signals') {
-      const signals = realtimeNeuralVision.getCustomSignals();
-      for (const sig of signals) {
-        if (
-          clickX >= sig.x - 0.02 &&
-          clickX <= sig.x + sig.w + 0.02 &&
-          clickY >= sig.y - 0.02 &&
-          clickY <= sig.y + sig.h + 0.02
-        ) {
-          setActiveDragSignal({
-            signalId: sig.id,
-            offsetX: clickX - sig.x,
-            offsetY: clickY - sig.y
-          });
-          return;
-        }
+    // Check Lane Divider Handles Drag
+    for (let i = 0; i < currentDividers.length; i++) {
+      const div = currentDividers[i];
+      const distStart = Math.hypot(div.x1 - clickX, div.y1 - clickY);
+      const distEnd = Math.hypot(div.x2 - clickX, div.y2 - clickY);
+      if (distStart < 0.06) {
+        setActiveDragNode({ dividerIdx: i, node: 'start' });
+        return;
       }
-    }
-
-    // 2. Check Lane Dividers Drag
-    if (showLaneGeometry || inspectorTab === 'geometry') {
-      const dividers = realtimeNeuralVision.getSolidDividers();
-      for (let i = 0; i < dividers.length; i++) {
-        const div = dividers[i];
-        const distStart = Math.hypot(div.x1 - clickX, div.y1 - clickY);
-        const distEnd = Math.hypot(div.x2 - clickX, div.y2 - clickY);
-        if (distStart < 0.06) {
-          setActiveDragNode({ dividerIdx: i, node: 'start' });
-          return;
-        }
-        if (distEnd < 0.06) {
-          setActiveDragNode({ dividerIdx: i, node: 'end' });
-          return;
-        }
+      if (distEnd < 0.06) {
+        setActiveDragNode({ dividerIdx: i, node: 'end' });
+        return;
       }
     }
   };
@@ -256,21 +588,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const curX = Math.max(0.01, Math.min(0.99, (e.clientX - rect.left) / rect.width));
-    const curY = Math.max(0.01, Math.min(0.99, (e.clientY - rect.top) / rect.height));
-
-    if (activeDragSignal) {
-      const targetX = Math.max(0.02, Math.min(0.92, curX - activeDragSignal.offsetX));
-      const targetY = Math.max(0.02, Math.min(0.85, curY - activeDragSignal.offsetY));
-
-      realtimeNeuralVision.updateSignalPosition(activeDragSignal.signalId, targetX, targetY);
-      setConfiguredSignals(realtimeNeuralVision.getCustomSignals());
-      setCalibrationNotice(`Позиция светофора #${activeDragSignal.signalId} обновлена`);
-      return;
-    }
+    const curX = Math.max(0.02, Math.min(0.98, (e.clientX - rect.left) / rect.width));
+    const curY = Math.max(0.05, Math.min(0.98, (e.clientY - rect.top) / rect.height));
 
     if (activeDragNode) {
-      const updated = [...realtimeNeuralVision.getSolidDividers()];
+      const updated = [...currentDividers];
       if (updated[activeDragNode.dividerIdx]) {
         if (activeDragNode.node === 'start') {
           updated[activeDragNode.dividerIdx].x1 = parseFloat(curX.toFixed(3));
@@ -279,222 +601,96 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
           updated[activeDragNode.dividerIdx].x2 = parseFloat(curX.toFixed(3));
           updated[activeDragNode.dividerIdx].y2 = parseFloat(curY.toFixed(3));
         }
-        realtimeNeuralVision.setSolidDividers(updated);
         setCurrentDividers(updated);
-        setCalibrationNotice('Калибровка разметки сохранена');
+        realtimeNeuralVision.setSolidDividers(updated);
+      }
+      return;
+    }
+
+    // Hover state
+    let foundHover: { dividerIdx: number; node: 'start' | 'end' } | null = null;
+    for (let i = 0; i < currentDividers.length; i++) {
+      const div = currentDividers[i];
+      if (Math.hypot(div.x1 - curX, div.y1 - curY) < 0.06) {
+        foundHover = { dividerIdx: i, node: 'start' };
+        break;
+      }
+      if (Math.hypot(div.x2 - curX, div.y2 - curY) < 0.06) {
+        foundHover = { dividerIdx: i, node: 'end' };
+        break;
       }
     }
+    setHoveredNode(foundHover);
   };
 
   const handleCanvasMouseUp = () => {
     setActiveDragNode(null);
-    setActiveDragSignal(null);
   };
 
-  const applyPresetSignals = (preset: 'corners' | 'overhead' | 'left' | 'right') => {
-    let newSignals: CustomSignalConfig[] = [];
-    if (preset === 'corners') {
-      newSignals = [
-        { id: 1, label: 'Светофор #1 (Главное напр.)', x: 0.72, y: 0.08, w: 0.045, h: 0.12, direction: 'MAIN_DIRECTION', manualOverride: 'AUTO' },
-        { id: 2, label: 'Светофор #2 (Поперечное напр.)', x: 0.18, y: 0.10, w: 0.045, h: 0.12, direction: 'CROSS_DIRECTION', manualOverride: 'AUTO' }
-      ];
-    } else if (preset === 'overhead') {
-      newSignals = [
-        { id: 1, label: 'Светофор #1 (Главное напр.)', x: 0.52, y: 0.06, w: 0.045, h: 0.12, direction: 'MAIN_DIRECTION', manualOverride: 'AUTO' },
-        { id: 2, label: 'Светофор #2 (Поперечное напр.)', x: 0.32, y: 0.06, w: 0.045, h: 0.12, direction: 'CROSS_DIRECTION', manualOverride: 'AUTO' }
-      ];
-    } else if (preset === 'left') {
-      newSignals = [
-        { id: 1, label: 'Светофор #1 (Главное напр.)', x: 0.22, y: 0.12, w: 0.045, h: 0.12, direction: 'MAIN_DIRECTION', manualOverride: 'AUTO' },
-        { id: 2, label: 'Светофор #2 (Поперечное напр.)', x: 0.12, y: 0.16, w: 0.045, h: 0.12, direction: 'CROSS_DIRECTION', manualOverride: 'AUTO' }
-      ];
-    } else {
-      newSignals = [
-        { id: 1, label: 'Светофор #1 (Главное напр.)', x: 0.78, y: 0.12, w: 0.045, h: 0.12, direction: 'MAIN_DIRECTION', manualOverride: 'AUTO' },
-        { id: 2, label: 'Светофор #2 (Поперечное напр.)', x: 0.65, y: 0.15, w: 0.045, h: 0.12, direction: 'CROSS_DIRECTION', manualOverride: 'AUTO' }
-      ];
-    }
-    realtimeNeuralVision.setCustomSignals(newSignals);
-    setConfiguredSignals(newSignals);
-    setCalibrationNotice(`Применен пресет светофоров (${preset})`);
-  };
-
-  const applyPresetLanes = (preset: 'highway' | 'crossroad' | 'avenue' | 'default') => {
-    let newDivs: SolidLaneDivider[] = [];
-    if (preset === 'highway') {
-      newDivs = [
-        { id: 'solid_1', name: 'Сплошная #1 (Левая)', x1: 0.42, y1: 0.22, x2: 0.20, y2: 0.96 },
-        { id: 'solid_2', name: 'Сплошная #2 (Правая)', x1: 0.58, y1: 0.22, x2: 0.80, y2: 0.96 }
-      ];
-    } else if (preset === 'crossroad') {
-      newDivs = [
-        { id: 'solid_1', name: 'Сплошная #1 (Левая)', x1: 0.35, y1: 0.32, x2: 0.32, y2: 0.92 },
-        { id: 'solid_2', name: 'Сплошная #2 (Правая)', x1: 0.65, y1: 0.32, x2: 0.68, y2: 0.92 }
-      ];
-    } else if (preset === 'avenue') {
-      newDivs = [
-        { id: 'solid_1', name: 'Сплошная #1 (Левая)', x1: 0.30, y1: 0.25, x2: 0.15, y2: 0.95 },
-        { id: 'solid_2', name: 'Сплошная #2 (Правая)', x1: 0.70, y1: 0.25, x2: 0.85, y2: 0.95 }
-      ];
-    } else {
-      newDivs = [
-        { id: 'solid_1', name: 'Сплошная #1 (Левая)', x1: 0.38, y1: 0.28, x2: 0.28, y2: 0.94 },
-        { id: 'solid_2', name: 'Сплошная #2 (Правая)', x1: 0.62, y1: 0.28, x2: 0.72, y2: 0.94 }
-      ];
-    }
-    realtimeNeuralVision.setSolidDividers(newDivs);
-    setCurrentDividers(newDivs);
-    setCalibrationNotice(`Применен пресет разметки (${preset})`);
-  };
-
-  // Handle Video Upload
+  // Video File Upload Handler
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (uploadedVideoUrl) {
-        URL.revokeObjectURL(uploadedVideoUrl);
-      }
+      if (uploadedVideoUrl) URL.revokeObjectURL(uploadedVideoUrl);
       const url = URL.createObjectURL(file);
-      setUploadedVideoUrl(url);
       setUploadedFileName(file.name);
+      setUploadedVideoUrl(url);
+      setStreamSource('uploaded');
       setCurrentTime(0);
       setIsPlaying(true);
-      realtimeNeuralVision.reset();
-      if (videoRef.current) {
-        videoRef.current.currentTime = 0;
-        videoRef.current.play().catch(() => {});
-        setTimeout(() => {
-          runAutoLaneCalibration();
-          runAutoSignalsCalibration();
-        }, 300);
-      }
+      realtimeNeuralVision.clearAllEvents();
+      setDetectedEvents([]);
+      setSmoothedEvents([]);
+      setJumpNotice(`Загружено видео: ${file.name}`);
+      setTimeout(() => setJumpNotice(null), 3000);
     }
   };
 
-  const handleLoadedMetadata = () => {
-    if (videoRef.current) {
-      const dur = videoRef.current.duration;
-      if (dur && !isNaN(dur) && isFinite(dur)) {
-        setDuration(dur);
-      }
-      runAutoLaneCalibration();
-      runAutoSignalsCalibration();
-    }
+  const handleSimulateViolation = (type: OfficialClass) => {
+    realtimeNeuralVision.simulateTestViolation(type, currentTime);
+    setDetectedEvents(realtimeNeuralVision.getRawEvents());
+    setSmoothedEvents(realtimeNeuralVision.getSmoothedEvents());
   };
 
-  const handleTimeUpdate = () => {
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
-    }
+  const handleClearViolations = () => {
+    realtimeNeuralVision.clearAllEvents();
+    setDetectedEvents([]);
+    setSmoothedEvents([]);
+    setJumpNotice('Реестр нарушений полностью очищен');
+    setTimeout(() => setJumpNotice(null), 2500);
   };
 
-  const togglePlay = () => {
-    const vid = videoRef.current;
-    if (!vid) return;
-
-    if (vid.paused) {
-      vid.play().then(() => setIsPlaying(true)).catch(() => {});
-    } else {
-      vid.pause();
-      setIsPlaying(false);
-    }
+  const handleDismissViolation = (id: string) => {
+    setDetectedEvents(prev => prev.filter(e => e.id !== id));
+    setSmoothedEvents(prev => prev.filter(e => e.id !== id));
+    setJumpNotice('Нарушение аннулировано из реестра');
+    setTimeout(() => setJumpNotice(null), 2000);
   };
 
-  const handleReset = () => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-      setCurrentTime(0);
-      realtimeNeuralVision.reset();
-    }
-  };
-
-  const handleSeek = (newTime: number, label?: string) => {
-    const clamped = Math.max(0, Math.min(duration, newTime));
-    setCurrentTime(clamped);
-    if (videoRef.current) {
-      videoRef.current.currentTime = clamped;
-    }
-    if (label) {
-      setJumpNotice(`🎯 Перемотано на ${clamped.toFixed(1)}с: ${label}`);
-      setTimeout(() => setJumpNotice(null), 3500);
-    }
-  };
-
-  const handleStepFrame = useCallback((forward: boolean) => {
-    if (videoRef.current) {
-      videoRef.current.pause();
-      setIsPlaying(false);
-      const step = forward ? 0.04 : -0.04;
-      const target = Math.max(0, Math.min(duration, videoRef.current.currentTime + step));
-      videoRef.current.currentTime = target;
-      setCurrentTime(target);
-    }
-  }, [duration]);
-
-  const handleStepSeconds = useCallback((deltaSec: number) => {
-    if (videoRef.current) {
-      const target = Math.max(0, Math.min(duration, videoRef.current.currentTime + deltaSec));
-      videoRef.current.currentTime = target;
-      setCurrentTime(target);
-    }
-  }, [duration]);
-
-  // Global Keyboard Shortcuts Handler
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
-
-      if (e.code === 'Space' || e.key === 'k' || e.key === 'K') {
-        e.preventDefault();
-        togglePlay();
-      } else if (e.key === '[' || e.key === 'j' || e.key === 'J' || (e.key === 'ArrowLeft' && !e.shiftKey)) {
-        e.preventDefault();
-        handleStepFrame(false);
-      } else if (e.key === ']' || e.key === 'l' || e.key === 'L' || (e.key === 'ArrowRight' && !e.shiftKey)) {
-        e.preventDefault();
-        handleStepFrame(true);
-      } else if (e.key === 'ArrowLeft' && e.shiftKey) {
-        e.preventDefault();
-        handleStepSeconds(-1.0);
-      } else if (e.key === 'ArrowRight' && e.shiftKey) {
-        e.preventDefault();
-        handleStepSeconds(1.0);
-      } else if (e.key >= '0' && e.key <= '9') {
-        e.preventDefault();
-        const pct = parseInt(e.key, 10) / 10;
-        handleSeek(duration * pct);
-      } else if (e.key === 'c' || e.key === 'C') {
-        setShowLaneGeometry(prev => !prev);
-      } else if (e.key === 'b' || e.key === 'B') {
-        setShowBoundingBoxes(prev => !prev);
-      } else if (e.key === 'r' || e.key === 'R') {
-        setShowSpeedRadar(prev => !prev);
-      } else if (e.key === 'h' || e.key === 'H' || e.key === '?') {
-        e.preventDefault();
-        setIsShortcutsOpen(prev => !prev);
-      }
+  const handleExportViolationsReport = () => {
+    if (violationsList.length === 0) return;
+    const report = {
+      exportedAt: new Date().toISOString(),
+      source: streamSource === 'simulator' ? 'CCTV Simulator (Tashkent Gantry #4)' : (uploadedFileName || 'Uploaded MP4'),
+      totalViolations: violationsList.length,
+      totalFinesUzs: totalFineStats.totalUzsFormatted,
+      violations: violationsList
     };
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [duration, handleStepFrame, handleStepSeconds]);
-
-  const handleExportSnapshot = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const link = document.createElement('a');
-    link.download = `traffic_cv_frame_${Math.floor(currentTime * 25)}.png`;
-    link.href = canvas.toDataURL('image/png');
-    link.click();
+    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pdd_violations_protocol_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   // ══════════════════════════════════════════════════════════════════════════
-  // ULTRA-SMOOTH CANVAS RENDERING WITH ROCK-SOLID BOUNDING BOXES & SIGNALS
+  // MASTER HIGH-PRECISION CANVAS RENDERING ENGINE
   // ══════════════════════════════════════════════════════════════════════════
-  const renderFrame = useCallback(() => {
+  const renderCanvas = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -502,343 +698,347 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     const height = canvas.height;
     ctx.clearRect(0, 0, width, height);
 
-    if (!videoRef.current || videoRef.current.readyState < 2) {
-      return;
+    const now = performance.now();
+    const isFlashActive = Math.floor(now / 180) % 2 === 0;
+
+    // 1. Draw Synthetic Road Perspective Background (if Simulator Stream)
+    if (streamSource === 'simulator') {
+      // Sky & Horizon
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.25);
+      skyGrad.addColorStop(0, '#020617');
+      skyGrad.addColorStop(1, '#0f172a');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, width, height * 0.25);
+
+      // Distant Urban Skyline & Gantry Truss
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(width * 0.1, height * 0.18, 80, 45);
+      ctx.fillRect(width * 0.75, height * 0.15, 120, 65);
+      ctx.fillRect(width * 0.88, height * 0.17, 70, 50);
+
+      // Roadside Terrain
+      ctx.fillStyle = '#090d16';
+      ctx.fillRect(0, height * 0.25, width, height * 0.75);
+
+      // Asphalt Road Trapezoid (Perspective)
+      ctx.fillStyle = '#131926';
+      ctx.beginPath();
+      ctx.moveTo(width * 0.22, height * 0.25);
+      ctx.lineTo(width * 0.78, height * 0.25);
+      ctx.lineTo(width * 0.95, height);
+      ctx.lineTo(width * 0.05, height);
+      ctx.closePath();
+      ctx.fill();
+
+      // Road Curbs & Edges (Double Yellow / Reflective Barrier)
+      ctx.strokeStyle = '#e2e8f0';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(width * 0.22, height * 0.25);
+      ctx.lineTo(width * 0.05, height);
+      ctx.moveTo(width * 0.78, height * 0.25);
+      ctx.lineTo(width * 0.95, height);
+      ctx.stroke();
+
+      // Dashed Lane Center Dividers (Perspective)
+      ctx.strokeStyle = '#94a3b8';
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([14, 12]);
+      ctx.beginPath();
+      ctx.moveTo(width * 0.50, height * 0.25);
+      ctx.lineTo(width * 0.50, height);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Pedestrian Crosswalk "Zebra" (Разметка 1.14.1)
+      const zebraY = height * 0.78;
+      const zebraH = 28;
+      ctx.fillStyle = 'rgba(241, 245, 249, 0.80)';
+      for (let i = 0; i < 11; i++) {
+        const xPos = width * 0.14 + i * (width * 0.065);
+        ctx.fillRect(xPos, zebraY, 26, zebraH);
+      }
+
+      // Stop Line (Разметка 1.12 "СТОП")
+      const stopY = height * 0.60;
+      const isRedPhase = trafficSignalPhase === 'RED' || (trafficSignalPhase === 'AUTO' && autoCycleTimeSec >= 15);
+      ctx.fillStyle = isRedPhase ? (isFlashActive ? '#ef4444' : '#dc2626') : '#f8fafc';
+      ctx.fillRect(width * 0.18, stopY, width * 0.64, 5);
+
+      ctx.fillStyle = isRedPhase ? '#ef4444' : '#94a3b8';
+      ctx.font = 'bold 11px JetBrains Mono, monospace';
+      ctx.fillText(`━━━ СТОП-ЛИНИЯ 1.12 ${isRedPhase ? '[ЗАПРЕТ ПРОЕЗДА]' : '[РАЗРЕШЕНО]'} ━━━`, width * 0.32, stopY - 6);
     }
 
-    realtimeNeuralVision.updateInterpolation();
-
-    const now = performance.now();
-    const isFlashActive = Math.floor(now / 200) % 2 === 0;
-
-    const tracks = realtimeNeuralVision.getTracks();
-    const scene = realtimeNeuralVision.getSceneAnalysis();
-    const dividers = realtimeNeuralVision.getSolidDividers();
-    const smokeRes = realtimeNeuralVision.getOpticalSmokeResult();
-
-    // 0. Draw Solid Lane Dividers (Integer Coordinates, Strict Non-Closed Polylines)
-    if ((showLaneGeometry || inspectorTab === 'geometry') && dividers && dividers.length > 0) {
-      dividers.forEach((div, idx) => {
-        const isCrossed = tracks.some(t => t.hasCrossedSolidLine);
-        ctx.strokeStyle = isCrossed ? (isFlashActive ? '#f59e0b' : '#6366f1') : '#6366f1ee';
-        ctx.lineWidth = isCrossed ? 3.5 : 2.5;
-        ctx.setLineDash([12, 6]);
-
-        // Truncate to exact integer coordinates to prevent antialiasing blur and spurious triangles
+    // 2. Draw Solid Lane Dividers (Разметка 1.1) with Glowing Pulse & Interactive Handles
+    if (showLaneGeometry && currentDividers.length > 0) {
+      currentDividers.forEach((div, idx) => {
         const p1x = Math.round(div.x1 * width);
         const p1y = Math.round(div.y1 * height);
         const p2x = Math.round(div.x2 * width);
         const p2y = Math.round(div.y2 * height);
 
+        // Check if any vehicle has triggered solid line crossing
+        const isCrossed = violationsList.some(v => v.id.includes('solid'));
+
+        // Glowing outer stroke
+        ctx.strokeStyle = isCrossed ? (isFlashActive ? '#ef4444' : '#f59e0b') : '#6366f1';
+        ctx.lineWidth = isCrossed ? 5.5 : 3.5;
         ctx.beginPath();
         ctx.moveTo(p1x, p1y);
         ctx.lineTo(p2x, p2y);
-        // Note: isClosed=false (do not call ctx.closePath()) to prevent closing triangles
         ctx.stroke();
-        ctx.setLineDash([]);
 
-        // Anchor nodes
-        ctx.fillStyle = '#6366f1';
+        // Inner solid white core line
+        ctx.strokeStyle = isCrossed ? '#ffffff' : '#e0e7ff';
+        ctx.lineWidth = 2.0;
+        ctx.beginPath();
+        ctx.moveTo(p1x, p1y);
+        ctx.lineTo(p2x, p2y);
+        ctx.stroke();
+
+        // Interactive End-Point Handles
+        const isHoverP1 = hoveredNode?.dividerIdx === idx && hoveredNode?.node === 'start';
+        const isHoverP2 = hoveredNode?.dividerIdx === idx && hoveredNode?.node === 'end';
+
+        // P1 Handle (Top)
+        ctx.fillStyle = isHoverP1 ? '#38bdf8' : '#6366f1';
         ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 2;
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(p1x, p1y, 6, 0, Math.PI * 2);
+        ctx.arc(p1x, p1y, isHoverP1 ? 9 : 7, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#818cf8';
+        // P2 Handle (Bottom)
+        ctx.fillStyle = isHoverP2 ? '#38bdf8' : '#818cf8';
         ctx.beginPath();
-        ctx.arc(p2x, p2y, 8, 0, Math.PI * 2);
+        ctx.arc(p2x, p2y, isHoverP2 ? 11 : 9, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
-        ctx.fillStyle = '#c7d2fe';
-        ctx.font = 'bold 10px JetBrains Mono, monospace';
-        ctx.fillText(`━━ ${div.name.split(' ')[0]} #${idx + 1}`, p2x - 45, p2y - 12);
-      });
-    }
-
-    // 0.1 Smoke & Fire Overlay
-    if (smokeRes.detected && smokeRes.bbox) {
-      const [sx, sy, sw, sh] = smokeRes.bbox;
-      const px = sx * width;
-      const py = sy * height;
-      const pw = sw * width;
-      const ph = sh * height;
-
-      ctx.strokeStyle = isFlashActive ? '#f97316' : '#ef4444';
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([6, 4]);
-      ctx.strokeRect(px, py, pw, ph);
-      ctx.setLineDash([]);
-
-      ctx.fillStyle = isFlashActive ? 'rgba(249, 115, 22, 0.25)' : 'rgba(239, 68, 68, 0.20)';
-      ctx.fillRect(px, py, pw, ph);
-
-      ctx.fillStyle = '#ea580c';
-      ctx.fillRect(px, py - 18, 140, 18);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 10px JetBrains Mono, monospace';
-      ctx.fillText(`🔥 ДЫМ / ОГОНЬ (${Math.round(smokeRes.confidence * 100)}%)`, px + 5, py - 5);
-    }
-
-    // 1. Draw Trajectories
-    if (showTrajectories) {
-      tracks.forEach(obj => {
-        if (obj.trail && obj.trail.length > 1 && obj.isMoving) {
-          ctx.strokeStyle = obj.collisionRisk && enableCollisionAlerts ? '#ef4444dd' : `${obj.color}aa`;
-          ctx.lineWidth = obj.collisionRisk && enableCollisionAlerts ? 3 : 2;
-          ctx.beginPath();
-          obj.trail.forEach((pt, idx) => {
-            const px = pt.x * width;
-            const py = pt.y * height;
-            if (idx === 0) ctx.moveTo(px, py);
-            else ctx.lineTo(px, py);
-          });
-          ctx.stroke();
-
-          ctx.fillStyle = obj.hasCrossedSolidLine ? '#f59e0b' : obj.collisionRisk && enableCollisionAlerts ? '#ef4444' : obj.color;
-          ctx.beginPath();
-          ctx.arc(
-            (obj.renderX + obj.renderW / 2) * width,
-            (obj.renderY + obj.renderH) * height,
-            obj.hasCrossedSolidLine ? 6 : obj.collisionRisk ? 5 : 3.5,
-            0,
-            Math.PI * 2
-          );
-          ctx.fill();
-        }
-      });
-    }
-
-    // 2. Collision Risk Vector Rays
-    if (enableCollisionAlerts) {
-      tracks.forEach(obj => {
-        if (obj.collisionRisk && obj.conflictWithId) {
-          const conflictPartner = tracks.find(t => t.id === obj.conflictWithId);
-          if (conflictPartner && obj.id < conflictPartner.id) {
-            const x1 = (obj.renderX + obj.renderW / 2) * width;
-            const y1 = (obj.renderY + obj.renderH * 0.85) * height;
-            const x2 = (conflictPartner.renderX + conflictPartner.renderW / 2) * width;
-            const y2 = (conflictPartner.renderY + conflictPartner.renderH * 0.85) * height;
-
-            const grad = ctx.createLinearGradient(x1, y1, x2, y2);
-            grad.addColorStop(0, isFlashActive ? '#ef4444' : '#dc2626');
-            grad.addColorStop(0.5, '#f59e0b');
-            grad.addColorStop(1, isFlashActive ? '#ef4444' : '#dc2626');
-
-            ctx.strokeStyle = grad;
-            ctx.lineWidth = 3;
-            ctx.setLineDash([8, 5]);
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
-            ctx.setLineDash([]);
-
-            const midX = (x1 + x2) / 2;
-            const midY = (y1 + y2) / 2;
-            ctx.fillStyle = 'rgba(239, 68, 68, 0.95)';
-            ctx.fillRect(midX - 55, midY - 14, 110, 26);
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(midX - 55, midY - 14, 110, 26);
-
-            ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 10px JetBrains Mono, monospace';
-            ctx.fillText(`⚠️ TTC < 1.8s`, midX - 42, midY + 3);
-          }
-        }
-      });
-    }
-
-    // 3. Object Bounding Boxes & Radar Speed Tags
-    if (showBoundingBoxes) {
-      tracks.forEach(obj => {
-        const px = obj.renderX * width;
-        const py = obj.renderY * height;
-        const pw = obj.renderW * width;
-        const ph = obj.renderH * height;
-
-        const isViolation = obj.hasCrossedSolidLine;
-        const isCollision = obj.collisionRisk && enableCollisionAlerts;
-
-        ctx.strokeStyle = isCollision ? '#ef4444' : isViolation ? '#f59e0b' : obj.color;
-        ctx.lineWidth = isCollision ? 3 : isViolation ? 2.5 : 1.8;
-        ctx.strokeRect(px, py, pw, ph);
-
-        // Corner accents
-        const cLen = Math.min(pw, ph) * 0.25;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(px, py + cLen);
-        ctx.lineTo(px, py);
-        ctx.lineTo(px + cLen, py);
-        ctx.moveTo(px + pw - cLen, py + ph);
-        ctx.lineTo(px + pw, py + ph);
-        ctx.lineTo(px + pw, py + ph - cLen);
-        ctx.stroke();
-
-        // Tag background
-        const tagText = `#${obj.id} ${obj.labelRu}`;
-        const speedText = showSpeedRadar ? `${obj.speedKmh.toFixed(0)} км/ч` : '';
-        const violationText = isViolation ? '• СПЛОШНАЯ' : '';
-
-        ctx.font = 'bold 10px JetBrains Mono, monospace';
-        const tagWidth = ctx.measureText(`${tagText}  ${speedText} ${violationText}`).width + 12;
-
-        ctx.fillStyle = isCollision ? '#ef4444' : isViolation ? '#f59e0b' : 'rgba(15, 23, 42, 0.85)';
-        ctx.fillRect(px, py - 18, tagWidth, 18);
+        // Label Tag
+        ctx.fillStyle = isCrossed ? '#ef4444' : 'rgba(15, 23, 42, 0.90)';
+        ctx.fillRect(p2x - 55, p2y - 18, 110, 18);
+        ctx.strokeStyle = isCrossed ? '#ffffff' : '#6366f1';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(p2x - 55, p2y - 18, 110, 18);
 
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(`${tagText}  ${speedText} ${violationText}`, px + 6, py - 5);
-      });
-    }
-
-    // 4. Render All Configured/Detected Traffic Lights with 3-Lens Photometry & Glow
-    if (showSignalsOverlay || inspectorTab === 'signals') {
-      const signals = scene.trafficLights || [];
-      signals.forEach((sig) => {
-        const sx = sig.x * width;
-        const sy = sig.y * height;
-        const sw = Math.max(26, sig.w * width);
-        const sh = Math.max(64, sig.h * height);
-
-        // Dark housing box
-        ctx.fillStyle = 'rgba(15, 23, 42, 0.94)';
-        ctx.strokeStyle = sig.activeColorHex;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.roundRect(sx, sy, sw, sh, 6);
-        ctx.fill();
-        ctx.stroke();
-
-        // 3 Vertical Lenses
-        const lensRadius = Math.max(3.5, Math.min(sw * 0.32, sh * 0.12));
-        const centerX = sx + sw / 2;
-        const stepY = sh / 4;
-
-        const colors = [
-          { state: 'RED', hex: '#ef4444', dimHex: 'rgba(239, 68, 68, 0.22)', y: sy + stepY },
-          { state: 'YELLOW', hex: '#f59e0b', dimHex: 'rgba(245, 158, 11, 0.22)', y: sy + stepY * 2 },
-          { state: 'GREEN', hex: '#10b981', dimHex: 'rgba(16, 185, 129, 0.22)', y: sy + stepY * 3 }
-        ];
-
-        colors.forEach(lens => {
-          const isActive = sig.state === lens.state;
-          ctx.beginPath();
-          ctx.arc(centerX, lens.y, lensRadius, 0, Math.PI * 2);
-          if (isActive) {
-            // Glow
-            const glow = ctx.createRadialGradient(centerX, lens.y, lensRadius * 0.2, centerX, lens.y, lensRadius * 2.2);
-            glow.addColorStop(0, '#ffffff');
-            glow.addColorStop(0.4, lens.hex);
-            glow.addColorStop(1, 'rgba(0,0,0,0)');
-            ctx.fillStyle = glow;
-            ctx.beginPath();
-            ctx.arc(centerX, lens.y, lensRadius * 2.2, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = lens.hex;
-            ctx.beginPath();
-            ctx.arc(centerX, lens.y, lensRadius, 0, Math.PI * 2);
-            ctx.fill();
-          } else {
-            ctx.fillStyle = lens.dimHex;
-            ctx.fill();
-          }
-        });
-
-        // Move handle indicator
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-        ctx.beginPath();
-        ctx.arc(sx + sw - 6, sy + 6, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        // Signal Header Badge
-        const tagText = `🚦 #${sig.id} ${sig.direction === 'MAIN_DIRECTION' ? 'ГЛАВН.' : 'ПОПЕР.'}`;
-        const statusText = `${sig.stateLabelRu}`;
         ctx.font = 'bold 9px JetBrains Mono, monospace';
-        const badgeW = ctx.measureText(`${tagText}: ${statusText}`).width + 10;
-        
-        ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
-        ctx.fillRect(sx + sw / 2 - badgeW / 2, sy - 18, badgeW, 16);
-        ctx.strokeStyle = sig.activeColorHex;
-        ctx.lineWidth = 1;
-        ctx.strokeRect(sx + sw / 2 - badgeW / 2, sy - 18, badgeW, 16);
-
-        ctx.fillStyle = sig.activeColorHex;
-        ctx.fillText(`${tagText}: ${statusText}`, sx + sw / 2 - badgeW / 2 + 5, sy - 6);
+        ctx.fillText(`⮑ ${div.name.split(' ')[0]} #${idx + 1}`, p2x - 50, p2y - 6);
       });
     }
 
-    // 5. Top Right Crossroad Interlocking Phase HUD
-    const tlX = width - 310;
-    const tlY = 12;
-    ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
-    ctx.fillRect(tlX, tlY, 298, 30);
-    ctx.strokeStyle = scene.trafficLightState === 'RED' ? '#ef4444' : scene.trafficLightState === 'GREEN' ? '#10b981' : '#f59e0b';
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(tlX, tlY, 298, 30);
+    // 3. Draw Simulator Vehicles, Bounding Boxes, ANPR Plates & Speed Tags
+    if (streamSource === 'simulator') {
+      simVehiclesRef.current.forEach(veh => {
+        const px = veh.x * width;
+        const py = veh.y * height;
+        const pw = veh.w * width;
+        const ph = veh.h * height;
 
-    // Main Dot
-    ctx.fillStyle = scene.trafficLightState === 'RED' ? '#ef4444' : scene.trafficLightState === 'GREEN' ? '#10b981' : '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(tlX + 16, tlY + 15, 6, 0, Math.PI * 2);
-    ctx.fill();
+        if (veh.type !== 'pedestrian') {
+          // Draw Vehicle Shadow & Body
+          ctx.fillStyle = 'rgba(0, 0, 0, 0.45)';
+          ctx.beginPath();
+          ctx.ellipse(px + pw / 2, py + ph * 0.95, pw * 0.55, ph * 0.18, 0, 0, Math.PI * 2);
+          ctx.fill();
 
-    // Cross Dot
-    const crossState = scene.intersectionPhase?.crossPhase || (scene.trafficLightState === 'RED' ? 'GREEN' : 'RED');
-    ctx.fillStyle = crossState === 'RED' ? '#ef4444' : crossState === 'GREEN' ? '#10b981' : '#f59e0b';
-    ctx.beginPath();
-    ctx.arc(tlX + 32, tlY + 15, 6, 0, Math.PI * 2);
-    ctx.fill();
+          // Vehicle Body Rectangle
+          ctx.fillStyle = veh.color;
+          ctx.beginPath();
+          ctx.roundRect(px, py, pw, ph, 5);
+          ctx.fill();
 
-    ctx.fillStyle = '#f8fafc';
+          // Windshield & Roof
+          ctx.fillStyle = '#0f172a';
+          ctx.beginPath();
+          ctx.roundRect(px + pw * 0.15, py + ph * 0.20, pw * 0.70, ph * 0.35, 3);
+          ctx.fill();
+
+          // Headlights / Taillights
+          ctx.fillStyle = '#fef08a';
+          ctx.fillRect(px + pw * 0.10, py + ph * 0.05, pw * 0.20, ph * 0.08);
+          ctx.fillRect(px + pw * 0.70, py + ph * 0.05, pw * 0.20, ph * 0.08);
+          ctx.fillStyle = '#ef4444';
+          ctx.fillRect(px + pw * 0.10, py + ph * 0.88, pw * 0.22, ph * 0.08);
+          ctx.fillRect(px + pw * 0.68, py + ph * 0.88, pw * 0.22, ph * 0.08);
+
+          // Bounding Box Overlay & ANPR Tag
+          if (showBoundingBoxes) {
+            const isViolation = veh.hasCrossedSolid || veh.hasViolatedRed;
+            ctx.strokeStyle = isViolation ? (isFlashActive ? '#ef4444' : '#f59e0b') : '#38bdf8';
+            ctx.lineWidth = isViolation ? 2.5 : 1.6;
+            ctx.strokeRect(px - 2, py - 2, pw + 4, ph + 4);
+
+            // ANPR License Plate Box
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            const plateW = Math.min(pw + 10, 85);
+            ctx.fillRect(px + pw / 2 - plateW / 2, py + ph - 6, plateW, 14);
+            ctx.strokeRect(px + pw / 2 - plateW / 2, py + ph - 6, plateW, 14);
+
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 8px JetBrains Mono, monospace';
+            ctx.fillText(veh.plate, px + pw / 2 - plateW / 2 + 3, py + ph + 4);
+
+            // Radar Speed & Status Header
+            const statusTag = veh.hasCrossedSolid ? '• СПЛОШНАЯ 1.1' : veh.hasViolatedRed ? '• КРАСНЫЙ СВЕТ' : `${veh.speedKmh.toFixed(0)} км/ч`;
+            ctx.fillStyle = isViolation ? '#ef4444' : 'rgba(15, 23, 42, 0.90)';
+            ctx.fillRect(px - 2, py - 18, Math.max(pw + 4, 90), 16);
+
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 9px JetBrains Mono, monospace';
+            ctx.fillText(`#${veh.id} ${statusTag}`, px + 2, py - 6);
+          }
+        } else {
+          // Pedestrian Body
+          ctx.fillStyle = '#84cc16';
+          ctx.beginPath();
+          ctx.arc(px + pw / 2, py + ph * 0.3, pw * 0.4, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillRect(px + pw * 0.25, py + ph * 0.35, pw * 0.5, ph * 0.65);
+
+          if (showBoundingBoxes) {
+            ctx.strokeStyle = '#84cc16';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(px - 2, py - 2, pw + 4, ph + 4);
+
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.90)';
+            ctx.fillRect(px - 2, py - 16, 65, 14);
+            ctx.fillStyle = '#84cc16';
+            ctx.font = 'bold 8px JetBrains Mono, monospace';
+            ctx.fillText(`🚶 #${veh.id} Пешеход`, px + 2, py - 6);
+          }
+        }
+      });
+    }
+
+    // 4. Render Active 3-Lens Traffic Light Housing & Optical Glow
+    if (showSignalsOverlay) {
+      const isRedPhase = trafficSignalPhase === 'RED' || (trafficSignalPhase === 'AUTO' && autoCycleTimeSec >= 15);
+      const isYellowPhase = trafficSignalPhase === 'YELLOW' || (trafficSignalPhase === 'AUTO' && autoCycleTimeSec >= 12 && autoCycleTimeSec < 15);
+      const isGreenPhase = trafficSignalPhase === 'GREEN' || (trafficSignalPhase === 'AUTO' && autoCycleTimeSec < 12);
+
+      const sx = width * 0.72;
+      const sy = height * 0.08;
+      const sw = 34;
+      const sh = 88;
+
+      // Dark housing box with border
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.95)';
+      ctx.strokeStyle = isRedPhase ? '#ef4444' : isYellowPhase ? '#f59e0b' : '#10b981';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.roundRect(sx, sy, sw, sh, 8);
+      ctx.fill();
+      ctx.stroke();
+
+      // 3 Optical Lenses
+      const lenses = [
+        { state: 'RED', active: isRedPhase, hex: '#ef4444', dimHex: '#3f1515', y: sy + 18 },
+        { state: 'YELLOW', active: isYellowPhase, hex: '#f59e0b', dimHex: '#3b2910', y: sy + 44 },
+        { state: 'GREEN', active: isGreenPhase, hex: '#10b981', dimHex: '#0c3024', y: sy + 70 }
+      ];
+
+      lenses.forEach(lens => {
+        ctx.beginPath();
+        ctx.arc(sx + sw / 2, lens.y, 9, 0, Math.PI * 2);
+        ctx.fillStyle = lens.active ? lens.hex : lens.dimHex;
+        ctx.fill();
+
+        if (lens.active) {
+          // Glow halo
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5;
+          ctx.stroke();
+
+          ctx.beginPath();
+          ctx.arc(sx + sw / 2, lens.y, 14, 0, Math.PI * 2);
+          ctx.strokeStyle = lens.hex;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+
+      // Top Header Badge
+      const statusText = isRedPhase ? '🔴 КРАСНЫЙ (Запрет)' : isYellowPhase ? '🟡 ЖЕЛТЫЙ' : '🟢 ЗЕЛЕНЫЙ (Разрешен)';
+      ctx.fillStyle = 'rgba(2, 6, 23, 0.92)';
+      ctx.fillRect(sx - 40, sy - 22, 115, 18);
+      ctx.strokeStyle = isRedPhase ? '#ef4444' : isYellowPhase ? '#f59e0b' : '#10b981';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(sx - 40, sy - 22, 115, 18);
+
+      ctx.fillStyle = isRedPhase ? '#ef4444' : isYellowPhase ? '#f59e0b' : '#10b981';
+      ctx.font = 'bold 9px JetBrains Mono, monospace';
+      ctx.fillText(statusText, sx - 35, sy - 10);
+    }
+
+    // 5. Top Left Telemetry HUD
+    ctx.fillStyle = 'rgba(2, 6, 23, 0.88)';
+    ctx.fillRect(12, 12, 230, 26);
+    ctx.strokeStyle = '#38bdf8';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(12, 12, 230, 26);
+
+    ctx.fillStyle = '#38bdf8';
     ctx.font = 'bold 10px JetBrains Mono, monospace';
-    const mainShort = scene.trafficLightState === 'RED' ? 'Гл: КРАСНЫЙ' : scene.trafficLightState === 'YELLOW' ? 'Гл: ЖЕЛТЫЙ' : 'Гл: ЗЕЛЕНЫЙ';
-    const crossShort = crossState === 'RED' ? 'Попер: КРАСНЫЙ' : 'Попер: ЗЕЛЕНЫЙ';
-    ctx.fillText(`🚦 ${mainShort} ⟷ ${crossShort}`, tlX + 46, tlY + 19);
+    ctx.fillText(`⚡ CCTV STREAM: ${streamSource === 'simulator' ? 'SIMULATOR 60FPS' : 'MP4 INFERENCE'}`, 20, 29);
 
-  }, [showBoundingBoxes, showTrajectories, showSpeedRadar, enableCollisionAlerts, showLaneGeometry, showSignalsOverlay, inspectorTab]);
-
-  // Main Animation Loop
-  useEffect(() => {
-    const loop = () => {
-      renderFrame();
-      animFrameRef.current = requestAnimationFrame(loop);
-    };
-    animFrameRef.current = requestAnimationFrame(loop);
-    return () => {
-      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    };
-  }, [renderFrame]);
+  }, [streamSource, showBoundingBoxes, showLaneGeometry, showSignalsOverlay, currentDividers, hoveredNode, trafficSignalPhase, autoCycleTimeSec, violationsList]);
 
   return (
     <div className="space-y-4 text-slate-200">
-      {/* Top Application Workspace Banner */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3">
+      {/* Top Application Workspace Banner with Stream Switcher */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-3 shadow-lg">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-            <Video className="w-5 h-5" />
+            <Activity className="w-5 h-5" />
           </div>
           <div>
             <h1 className="text-sm font-bold text-white flex items-center gap-2">
-              <span>{lang === 'ru' ? 'Анализатор видеопотока и нарушений ПДД' : 'Traffic Incident & CV Analytics Workstation'}</span>
+              <span>{lang === 'ru' ? 'Анализатор видеопотока и нарушений ПДД (VisionForce)' : 'Traffic Incident & CV Analytics Workstation'}</span>
               <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                LIVE INFERENCE
+                LIVE HARNESS
               </span>
             </h1>
             <p className="text-xs text-slate-400">
               {lang === 'ru'
-                ? 'Детекция транспорта, динамическая калибровка светофоров и расчет риска столкновений (TTC).'
-                : 'Vehicle detection, dynamic traffic light calibration, and predictive collision hazard estimation.'}
+                ? 'Детекция сплошных линий 1.1, оптический светофор (HSV) и фиксация штрафов по КоАО РУз.'
+                : 'Solid line 1.1 crossing, optical traffic light chroma, and official administrative fine protocols.'}
             </p>
           </div>
         </div>
 
-        {/* Upload Action */}
-        <div className="flex items-center gap-2 w-full sm:w-auto">
+        {/* Source Mode Switcher & Upload */}
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+          <div className="flex items-center bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+            <button
+              onClick={() => setStreamSource('simulator')}
+              className={`px-3 py-1.5 rounded-md font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                streamSource === 'simulator'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Zap className="w-3.5 h-3.5" />
+              <span>{lang === 'ru' ? 'CCTV Симулятор' : 'Simulator'}</span>
+            </button>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className={`px-3 py-1.5 rounded-md font-bold transition-colors cursor-pointer flex items-center gap-1.5 ${
+                streamSource === 'uploaded'
+                  ? 'bg-cyan-500 text-slate-950 shadow-sm'
+                  : 'text-slate-400 hover:text-white'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{uploadedFileName ? 'MP4: ' + uploadedFileName.slice(0, 12) + '...' : (lang === 'ru' ? 'Загрузить MP4' : 'Upload MP4')}</span>
+            </button>
+          </div>
+
           <input
             type="file"
             ref={fileInputRef}
@@ -846,33 +1046,71 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
             onChange={handleFileUpload}
             className="hidden"
           />
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-full sm:w-auto px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-lg shadow-md shadow-cyan-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
-          >
-            <Upload className="w-4 h-4" />
-            <span>{uploadedFileName ? (lang === 'ru' ? 'Заменить видео' : 'Change Video') : (lang === 'ru' ? 'Загрузить видео (.mp4)' : 'Upload Video')}</span>
-          </button>
         </div>
       </div>
 
       {/* Main Studio Grid: Video Viewport on Left (68%), Inspector Panel on Right (32%) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-        {/* LEFT: Video Player Stage (8 cols) */}
-        <div className="lg:col-span-8 space-y-2">
-          {/* Main Viewport Container */}
+        {/* LEFT: Video Player / Simulator Canvas (8 cols) */}
+        <div className="lg:col-span-8 space-y-3">
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
-            {/* Top Viewport Header Controls */}
-            <div className="px-3 py-2 bg-slate-950 border-b border-slate-800 flex flex-wrap items-center justify-between gap-2 text-xs">
+            {/* Viewport Top Controls Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 bg-slate-950 border-b border-slate-800 text-xs">
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span className="font-mono text-slate-300 font-bold">
-                  {uploadedFileName ? uploadedFileName : 'Камера CCTV: Ожидание входного потока'}
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span className="font-mono text-cyan-300 font-bold">
+                  {streamSource === 'simulator' ? 'CCTV LIVE #04' : (uploadedFileName || 'VIDEO FEED')}
                 </span>
               </div>
 
+              {/* Quick Traffic Light Manual Phase Buttons */}
+              <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800 font-mono text-[10px]">
+                <span className="text-slate-400 font-sans font-bold">Фаза:</span>
+                <button
+                  onClick={() => handleManualSignalPhase('AUTO')}
+                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                    trafficSignalPhase === 'AUTO'
+                      ? 'bg-cyan-500 text-slate-950 font-bold'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                  title="Автоматический светофорный цикл (12с / 3с / 10с)"
+                >
+                  Авто-цикл
+                </button>
+                <button
+                  onClick={() => handleManualSignalPhase('RED')}
+                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                    trafficSignalPhase === 'RED'
+                      ? 'bg-red-600 text-white font-bold shadow-md shadow-red-600/30'
+                      : 'text-red-400 hover:bg-red-500/20'
+                  }`}
+                >
+                  🔴 Красный
+                </button>
+                <button
+                  onClick={() => handleManualSignalPhase('YELLOW')}
+                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                    trafficSignalPhase === 'YELLOW'
+                      ? 'bg-amber-500 text-slate-950 font-bold'
+                      : 'text-amber-400 hover:bg-amber-500/20'
+                  }`}
+                >
+                  🟡 Желтый
+                </button>
+                <button
+                  onClick={() => handleManualSignalPhase('GREEN')}
+                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
+                    trafficSignalPhase === 'GREEN'
+                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/30'
+                      : 'text-emerald-400 hover:bg-emerald-500/20'
+                  }`}
+                >
+                  🟢 Зеленый
+                </button>
+              </div>
+
               {/* Quick Vision Layers */}
-              <div className="flex items-center gap-3 text-[11px]">
+              <div className="flex items-center gap-2.5 text-[11px]">
                 <label className="flex items-center gap-1 cursor-pointer">
                   <input
                     type="checkbox"
@@ -886,11 +1124,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 <label className="flex items-center gap-1 cursor-pointer">
                   <input
                     type="checkbox"
-                    checked={showSpeedRadar}
-                    onChange={(e) => setShowSpeedRadar(e.target.checked)}
-                    className="accent-cyan-400 w-3 h-3 rounded cursor-pointer"
+                    checked={showLaneGeometry}
+                    onChange={(e) => setShowLaneGeometry(e.target.checked)}
+                    className="accent-indigo-400 w-3 h-3 rounded cursor-pointer"
                   />
-                  <span className="text-slate-300">Радар</span>
+                  <span className="text-indigo-300 font-bold">Сплошные 1.1</span>
                 </label>
 
                 <label className="flex items-center gap-1 cursor-pointer">
@@ -902,50 +1140,26 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   />
                   <span className="text-emerald-300 font-bold">Светофоры</span>
                 </label>
-
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={showLaneGeometry}
-                    onChange={(e) => setShowLaneGeometry(e.target.checked)}
-                    className="accent-indigo-400 w-3 h-3 rounded cursor-pointer"
-                  />
-                  <span className="text-indigo-300 font-bold">Полосы</span>
-                </label>
-
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={enableCollisionAlerts}
-                    onChange={(e) => setEnableCollisionAlerts(e.target.checked)}
-                    className="accent-red-500 w-3 h-3 rounded cursor-pointer"
-                  />
-                  <span className="text-red-300 font-bold">ДТП алерт</span>
-                </label>
               </div>
             </div>
 
             {/* Video Canvas Container */}
             <div className="relative aspect-video bg-slate-950 overflow-hidden flex items-center justify-center">
-              <video
-                ref={videoRef}
-                src={uploadedVideoUrl || ''}
-                playsInline
-                loop
-                muted
-                autoPlay
-                onPlay={() => {
-                  setIsPlaying(true);
-                  realtimeNeuralVision.setPaused(false);
-                }}
-                onPause={() => {
-                  setIsPlaying(false);
-                  realtimeNeuralVision.setPaused(true);
-                }}
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={handleLoadedMetadata}
-                className="w-full h-full object-contain"
-              />
+              {streamSource === 'uploaded' && uploadedVideoUrl && (
+                <video
+                  ref={videoRef}
+                  src={uploadedVideoUrl}
+                  playsInline
+                  loop
+                  muted
+                  autoPlay
+                  onPlay={() => setIsPlaying(true)}
+                  onPause={() => setIsPlaying(false)}
+                  onTimeUpdate={(e) => setCurrentTime((e.target as HTMLVideoElement).currentTime)}
+                  onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration || 60)}
+                  className="w-full h-full object-contain"
+                />
+              )}
 
               <canvas
                 ref={canvasRef}
@@ -958,38 +1172,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 className="absolute inset-0 w-full h-full cursor-crosshair"
               />
 
-              {/* Upload Dropzone Overlay when no video */}
-              {!uploadedVideoUrl && (
-                <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center space-y-4">
-                  <div className="w-16 h-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400">
-                    <Video className="w-8 h-8" />
-                  </div>
-                  <div className="max-w-md space-y-1">
-                    <h3 className="text-sm font-bold text-white">
-                      {lang === 'ru' ? 'Загрузите тестовое видео хакатона (.mp4)' : 'Upload Traffic CCTV Video (.mp4)'}
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      {lang === 'ru'
-                        ? 'Перетащите видеофайл для анализа нарушений ПДД, работы светофоров и фиксации инцидентов.'
-                        : 'Upload your video file to evaluate traffic violations, analyze traffic lights, and predict collision risks.'}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs rounded-xl shadow-lg shadow-cyan-500/25 transition-all flex items-center gap-2 cursor-pointer"
-                  >
-                    <Upload className="w-4 h-4" />
-                    <span>{lang === 'ru' ? 'Выбрать .mp4 файл' : 'Select .mp4 File'}</span>
-                  </button>
-                </div>
-              )}
-
-              {/* Interactive Tooltip when lane or signals edit is active */}
-              {(showLaneGeometry || showSignalsOverlay) && uploadedVideoUrl && (
-                <div className="absolute top-3 left-3 bg-slate-950/85 backdrop-blur-md border border-cyan-500/40 px-3 py-1 rounded-md text-[10px] text-cyan-300 flex items-center gap-2 select-none pointer-events-none">
-                  <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>{calibrationNotice} • Перетаскивайте светофоры и линии на видео</span>
+              {/* Floating notification for handle dragging */}
+              {showLaneGeometry && (
+                <div className="absolute bottom-3 left-3 bg-slate-950/90 backdrop-blur-md border border-indigo-500/40 px-3 py-1.5 rounded-lg text-[10px] text-indigo-300 flex items-center gap-2 select-none pointer-events-none shadow-xl">
+                  <Move className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Перетаскивайте узлы сплошных линий прямо на видео для точной калибровки</span>
                 </div>
               )}
             </div>
@@ -1007,33 +1194,15 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   </button>
 
                   <button
-                    onClick={() => handleStepSeconds(-1.0)}
+                    onClick={() => handleSeek(currentTime - 1.0, '-1с')}
                     className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono cursor-pointer border border-slate-700/60"
-                    title="Перемотка назад на 1 сек (Shift + ←)"
                   >
                     -1с
                   </button>
 
                   <button
-                    onClick={() => handleStepFrame(false)}
-                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg text-xs font-mono font-bold cursor-pointer border border-cyan-500/30"
-                    title="Шаг назад на 1 кадр (← / [ / J)"
-                  >
-                    ◀ -1k
-                  </button>
-
-                  <button
-                    onClick={() => handleStepFrame(true)}
-                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded-lg text-xs font-mono font-bold cursor-pointer border border-cyan-500/30"
-                    title="Шаг вперед на 1 кадр (→ / ] / L)"
-                  >
-                    +1k ▶
-                  </button>
-
-                  <button
-                    onClick={() => handleStepSeconds(1.0)}
+                    onClick={() => handleSeek(currentTime + 1.0, '+1с')}
                     className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-mono cursor-pointer border border-slate-700/60"
-                    title="Перемотка вперед на 1 сек (Shift + →)"
                   >
                     +1с
                   </button>
@@ -1041,26 +1210,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   <button
                     onClick={handleReset}
                     className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer border border-slate-700"
-                    title="Сброс"
+                    title="Сброс таймкода и реестра"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                  </button>
-
-                  <button
-                    onClick={handleExportSnapshot}
-                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors flex items-center gap-1 border border-slate-700 text-xs cursor-pointer"
-                  >
-                    <Download className="w-3 h-3 text-cyan-400" />
-                    <span>{lang === 'ru' ? 'Снимок' : 'Snapshot'}</span>
-                  </button>
-
-                  <button
-                    onClick={() => setIsShortcutsOpen(true)}
-                    className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-white rounded-lg transition-colors flex items-center gap-1.5 border border-indigo-500/40 text-xs cursor-pointer font-medium"
-                    title="Горячие клавиши (H / ?)"
-                  >
-                    <Keyboard className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>{lang === 'ru' ? 'Клавиши (H)' : 'Keys (H)'}</span>
                   </button>
                 </div>
 
@@ -1102,9 +1254,8 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
 
         {/* RIGHT: Vision & Incident Inspector (4 cols) */}
         <div className="lg:col-span-4 space-y-3">
-          {/* Inspector Panel */}
           <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-xl flex flex-col h-[520px]">
-            {/* Inspector Tab Selector - 4 Clear Tabs */}
+            {/* Inspector Tab Selector */}
             <div className="grid grid-cols-4 border-b border-slate-800 bg-slate-950 p-1 gap-1 text-[11px]">
               <button
                 onClick={() => setInspectorTab('objects')}
@@ -1114,7 +1265,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🚘 {lang === 'ru' ? 'Объекты' : 'Objects'} ({telemetryObjects.length})
+                🚘 Объекты
               </button>
 
               <button
@@ -1125,7 +1276,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                🚦 {lang === 'ru' ? 'Светофоры' : 'Signals'} ({sceneData.trafficLights?.length || 2})
+                🚦 Светофоры
               </button>
 
               <button
@@ -1136,7 +1287,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                ⚠️ {lang === 'ru' ? 'Инциденты' : 'Events'} ({collisionLogs.length})
+                ⚠️ Штрафы ({violationsList.length})
               </button>
 
               <button
@@ -1147,398 +1298,206 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     : 'text-slate-400 hover:text-white'
                 }`}
               >
-                📐 {lang === 'ru' ? 'Калибровка' : 'Calib'}
+                📐 Сплошные
               </button>
             </div>
 
-            {/* Tab 1: Objects Radar List with True Math Telemetry */}
+            {/* Tab 1: Objects & Radar Telemetry */}
             {inspectorTab === 'objects' && (
               <div className="p-3 flex-1 overflow-y-auto space-y-2 text-xs">
-                <div className="bg-slate-950/80 p-2 rounded border border-slate-800/80 mb-2">
+                <div className="bg-slate-950/80 p-2.5 rounded-lg border border-slate-800 mb-2">
                   <div className="text-[10px] text-cyan-400 font-mono font-bold flex items-center justify-between">
-                    <span>CV IPM Homography Math:</span>
-                    <span className="text-emerald-400">v = (Δd / Δt) × 3.6</span>
+                    <span>ANPR & Speed Radar Telemetry:</span>
+                    <span className="text-emerald-400">YOLOv11 60 FPS</span>
                   </div>
-                  <div className="text-[9px] text-slate-500 font-mono">
-                    Траекторная кинематика со сглаживанием шума детектора (без дергания)
+                  <div className="text-[9px] text-slate-400 mt-0.5">
+                    Автоматическое считывание госномеров и скоростного профиля полос
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-800">
-                  <span>Объект / ID</span>
-                  <span>Координаты (м)</span>
-                  <span>Скорость (км/ч)</span>
-                </div>
-
-                {telemetryObjects.length > 0 ? (
-                  telemetryObjects.map(obj => (
+                <div className="space-y-1.5">
+                  {simVehiclesRef.current.map(v => (
                     <div
-                      key={obj.id}
-                      className="p-2 rounded-lg bg-slate-950/60 border border-slate-800/80 flex items-center justify-between hover:border-slate-700 transition-colors"
+                      key={v.id}
+                      className="p-2 rounded-lg bg-slate-950/60 border border-slate-800 flex items-center justify-between hover:border-slate-700"
                     >
                       <div className="flex items-center gap-2">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: obj.color }}
-                        ></div>
+                        <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: v.color }}></div>
                         <div>
-                          <span className="font-bold text-white block">#{obj.id} {obj.labelRu}</span>
-                          <span className="text-[10px] text-slate-400 font-mono">
-                            Conf: {Math.round(obj.score * 100)}%
-                          </span>
+                          <span className="font-bold text-white block">#{v.id} {v.labelRu}</span>
+                          <span className="text-[10px] text-cyan-300 font-mono">{v.plate}</span>
                         </div>
                       </div>
-
-                      <div className="text-center font-mono text-[10px] text-slate-400">
-                        <div>X: <strong className="text-cyan-300">{obj.groundX ?? 0}м</strong></div>
-                        <div>Y: <strong className="text-cyan-300">{obj.groundY ?? 0}м</strong></div>
-                      </div>
-
                       <div className="text-right">
-                        <div className="font-mono font-bold text-emerald-400 text-sm">
-                          {obj.speedKmh > 0 ? `${obj.speedKmh.toFixed(1)}` : '0.0'} <span className="text-[9px] text-emerald-500/80">км/ч</span>
-                        </div>
+                        <div className="font-mono font-bold text-emerald-400 text-xs">{v.speedKmh.toFixed(0)} км/ч</div>
                         <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold inline-block ${
-                          obj.collisionRisk ? 'bg-red-500/25 text-red-300 border border-red-500/40' :
-                          obj.hasCrossedSolidLine ? 'bg-amber-500/25 text-amber-300 border border-amber-500/40' :
+                          v.hasCrossedSolid ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40' :
+                          v.hasViolatedRed ? 'bg-red-500/20 text-red-300 border border-red-500/40' :
                           'bg-cyan-500/10 text-cyan-300'
                         }`}>
-                          {obj.collisionRisk ? 'РИСК' : obj.hasCrossedSolidLine ? 'СПЛОШНАЯ' : obj.status}
+                          {v.hasCrossedSolid ? 'СПЛОШНАЯ' : v.hasViolatedRed ? 'КРАСНЫЙ' : 'НОРМА'}
                         </span>
                       </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="py-12 text-center text-slate-500 text-xs">
-                    {uploadedVideoUrl ? 'Сканирование кадров...' : 'Загрузите видео для детекции объектов'}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Tab 2: Traffic Signals & Intersection Phase Interlocking */}
-            {inspectorTab === 'signals' && (
-              <div className="p-3 flex-1 overflow-y-auto space-y-3 text-xs">
-                {/* Intersection Phase Matrix Status */}
-                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-white flex items-center gap-1.5">
-                      <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
-                      <span>Матрица бесконфликтных фаз (ПДД):</span>
-                    </span>
-                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                      ПДД 6.2 - 6.15
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-slate-300 font-mono bg-slate-900/80 p-2 rounded border border-slate-800">
-                    {sceneData.intersectionPhase?.activePhaseDescriptionRu || 'Фаза 1: Главное направление ЗЕЛЕНЫЙ ⟷ Второстепенное КРАСНЫЙ'}
-                  </p>
-                </div>
-
-                {/* Auto Locate and Presets Buttons */}
-                <div className="space-y-1.5">
-                  <button
-                    onClick={runAutoSignalsCalibration}
-                    className="w-full py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-md shadow-emerald-600/20"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>🎯 Авто-поиск светофоров на видео</span>
-                  </button>
-
-                  <div className="grid grid-cols-3 gap-1 text-[10px]">
-                    <button
-                      onClick={() => applyPresetSignals('corners')}
-                      className="py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer text-center"
-                    >
-                      По углам
-                    </button>
-                    <button
-                      onClick={() => applyPresetSignals('overhead')}
-                      className="py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer text-center"
-                    >
-                      По центру
-                    </button>
-                    <button
-                      onClick={() => applyPresetSignals('right')}
-                      className="py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded cursor-pointer text-center"
-                    >
-                      Справа
-                    </button>
-                  </div>
-                </div>
-
-                {/* Individual Traffic Light Cards */}
-                <div className="space-y-2">
-                  <div className="text-[11px] font-bold text-slate-300 flex items-center justify-between">
-                    <span>Светофоры на видео (перетаскивайте на видео):</span>
-                    <span className="text-[10px] text-cyan-400 font-normal flex items-center gap-1">
-                      <Move className="w-3 h-3" /> Drag & Drop
-                    </span>
-                  </div>
-
-                  {(sceneData.trafficLights || []).map(sig => (
-                    <div
-                      key={sig.id}
-                      className="bg-slate-950/80 border border-slate-800 rounded-lg p-2.5 space-y-2 hover:border-slate-700 transition-colors"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="w-3 h-3 rounded-full shrink-0 shadow-sm"
-                            style={{ backgroundColor: sig.activeColorHex, boxShadow: `0 0 8px ${sig.activeColorHex}` }}
-                          ></span>
-                          <div>
-                            <span className="font-bold text-white text-xs">{sig.label}</span>
-                            <div className="flex items-center gap-1 pt-0.5">
-                              <button
-                                onClick={() => handleSignalDirectionChange(sig.id, sig.direction === 'MAIN_DIRECTION' ? 'CROSS_DIRECTION' : 'MAIN_DIRECTION')}
-                                className="text-[9px] text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30 hover:bg-cyan-900 cursor-pointer"
-                              >
-                                {sig.direction === 'MAIN_DIRECTION' ? '➔ Главное напр.' : '➔ Поперечное напр.'}
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
-                        <span
-                          className="px-2 py-0.5 rounded text-[10px] font-bold border"
-                          style={{
-                            backgroundColor: `${sig.activeColorHex}22`,
-                            color: sig.activeColorHex,
-                            borderColor: `${sig.activeColorHex}55`
-                          }}
-                        >
-                          {sig.stateLabelRu}
-                        </span>
-                      </div>
-
-                      {/* Optical Lamp Scores */}
-                      <div className="grid grid-cols-3 gap-1 pt-1 text-[10px] font-mono border-t border-slate-800/80 text-slate-400">
-                        <div className={sig.state === 'RED' ? 'text-red-400 font-bold' : ''}>
-                          🔴 Красный: {sig.lampValues?.red || 0}
-                        </div>
-                        <div className={sig.state === 'YELLOW' ? 'text-amber-400 font-bold' : ''}>
-                          🟡 Желтый: {sig.lampValues?.yellow || 0}
-                        </div>
-                        <div className={sig.state === 'GREEN' ? 'text-emerald-400 font-bold' : ''}>
-                          🟢 Зеленый: {sig.lampValues?.green || 0}
-                        </div>
-                      </div>
-
-                      {/* Mode Override Buttons */}
-                      <div className="flex items-center gap-1 pt-1 border-t border-slate-800 text-[10px]">
-                        <span className="text-slate-500">Режим:</span>
-                        <button
-                          onClick={() => handleSignalOverrideChange(sig.id, 'AUTO')}
-                          className={`px-1.5 py-0.5 rounded cursor-pointer font-bold ${
-                            !sig.manualOverride || sig.manualOverride === 'AUTO'
-                              ? 'bg-cyan-500 text-slate-950'
-                              : 'bg-slate-800 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          Авто (CV)
-                        </button>
-                        <button
-                          onClick={() => handleSignalOverrideChange(sig.id, 'RED')}
-                          className={`px-1.5 py-0.5 rounded cursor-pointer font-bold ${
-                            sig.manualOverride === 'RED'
-                              ? 'bg-red-500 text-white'
-                              : 'bg-slate-800 text-red-400 hover:text-red-300'
-                          }`}
-                        >
-                          🔴 Красный
-                        </button>
-                        <button
-                          onClick={() => handleSignalOverrideChange(sig.id, 'YELLOW')}
-                          className={`px-1.5 py-0.5 rounded cursor-pointer font-bold ${
-                            sig.manualOverride === 'YELLOW'
-                              ? 'bg-amber-500 text-slate-950'
-                              : 'bg-slate-800 text-amber-400 hover:text-amber-300'
-                          }`}
-                        >
-                          🟡 Желтый
-                        </button>
-                        <button
-                          onClick={() => handleSignalOverrideChange(sig.id, 'GREEN')}
-                          className={`px-1.5 py-0.5 rounded cursor-pointer font-bold ${
-                            sig.manualOverride === 'GREEN'
-                              ? 'bg-emerald-500 text-white'
-                              : 'bg-slate-800 text-emerald-400 hover:text-emerald-300'
-                          }`}
-                        >
-                          🟢 Зеленый
-                        </button>
-                      </div>
-
-                      {sig.isOccludedOrInferred && (
-                        <div className="text-[9px] text-cyan-300 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-500/20">
-                          ℹ️ Сигнал рассчитан логически на основе фазы противоположного светофора
-                        </div>
-                      )}
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Tab 3: Incidents & Collision Log */}
+            {/* Tab 2: Traffic Signals & Optical HSV */}
+            {inspectorTab === 'signals' && (
+              <div className="p-3 flex-1 overflow-y-auto space-y-3 text-xs">
+                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-white flex items-center gap-1.5">
+                      <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+                      <span>Оптическая спектрометрия HSV:</span>
+                    </span>
+                    <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                      ПДД РУз
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-300 font-mono bg-slate-900/80 p-2 rounded border border-slate-800">
+                    {trafficSignalPhase === 'RED' ? '🔴 Фаза 1: Красный сигнал (Проезд запрещен, ст. 128-4)' :
+                     trafficSignalPhase === 'YELLOW' ? '🟡 Фаза 2: Желтый сигнал (Внимание)' :
+                     trafficSignalPhase === 'GREEN' ? '🟢 Фаза 3: Зеленый сигнал (Движение разрешено)' :
+                     '🔄 Авто-цикл: Динамическое адаптивное регулирование перекрестка'}
+                  </p>
+                </div>
+
+                <div className="space-y-1.5">
+                  <div className="font-bold text-white text-[11px]">Быстрое переключение фаз:</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => handleManualSignalPhase('GREEN')}
+                      className="py-2 bg-emerald-950/60 hover:bg-emerald-900 border border-emerald-500/40 text-emerald-300 rounded-lg font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      🟢 Зеленый
+                    </button>
+                    <button
+                      onClick={() => handleManualSignalPhase('RED')}
+                      className="py-2 bg-red-950/60 hover:bg-red-900 border border-red-500/40 text-red-300 rounded-lg font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      🔴 Красный
+                    </button>
+                    <button
+                      onClick={() => handleManualSignalPhase('YELLOW')}
+                      className="py-2 bg-amber-950/60 hover:bg-amber-900 border border-amber-500/40 text-amber-300 rounded-lg font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      🟡 Желтый
+                    </button>
+                    <button
+                      onClick={() => handleManualSignalPhase('AUTO')}
+                      className="py-2 bg-cyan-950/60 hover:bg-cyan-900 border border-cyan-500/40 text-cyan-300 rounded-lg font-bold text-xs cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      🔄 Авто-цикл
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Tab 3: Violations Quick List */}
             {inspectorTab === 'events' && (
               <div className="p-3 flex-1 overflow-y-auto space-y-2 text-xs">
                 <div className="flex items-center justify-between text-[11px] text-slate-400 pb-1 border-b border-slate-800">
-                  <span>Таймкод / Событие</span>
+                  <span>Таймкод / Нарушение</span>
                   <span>Действие</span>
                 </div>
 
-                {collisionLogs.length > 0 ? (
-                  collisionLogs.map(log => (
+                {violationsList.length > 0 ? (
+                  violationsList.map(viol => (
                     <div
-                      key={log.id}
-                      className="p-2.5 rounded-lg bg-slate-950 border border-red-500/30 space-y-1.5 hover:border-red-500/60 transition-colors"
+                      key={viol.id}
+                      className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1.5 hover:border-slate-700"
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-mono font-bold text-cyan-300 flex items-center gap-1 text-[11px]">
                           <Clock className="w-3 h-3 text-slate-500" />
-                          {log.timeFormatted}
+                          {viol.start.toFixed(1)}с – {viol.end.toFixed(1)}с
                         </span>
-                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-300 border border-red-500/40">
-                          {log.severity}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${viol.badgeColor}`}>
+                          {viol.riskBadge}
                         </span>
                       </div>
 
                       <div className="text-white font-medium text-[11px]">
-                        #{log.sourceId} {log.sourceLabel} ⚡ #{log.targetId} {log.targetLabel}
+                        {viol.labelRu}
                       </div>
 
                       <div className="flex items-center justify-between pt-1 border-t border-slate-800 text-[10px] text-slate-400">
-                        <span>Дистанция: <strong className="text-white">{log.distanceMeters}м</strong></span>
-                        <span>TTC: <strong className="text-red-400">{log.ttcSeconds}с</strong></span>
-                        <button
-                          onClick={() => handleSeek(log.timestamp)}
-                          className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 rounded transition-colors flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <span>Перейти</span>
-                          <ChevronRight className="w-2.5 h-2.5" />
-                        </button>
+                        <span className="font-mono text-emerald-400 font-bold">{viol.fineUzs}</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => setActiveProtocolItem(viol)}
+                            className="px-2 py-0.5 bg-cyan-950/80 hover:bg-cyan-900 text-cyan-300 border border-cyan-500/40 rounded transition-colors cursor-pointer"
+                          >
+                            Протокол
+                          </button>
+                          <button
+                            onClick={() => handleSeek(viol.start, viol.labelRu)}
+                            className="px-2 py-0.5 bg-slate-800 hover:bg-slate-700 text-white rounded transition-colors cursor-pointer"
+                          >
+                            Перейти
+                          </button>
+                        </div>
                       </div>
                     </div>
                   ))
                 ) : (
                   <div className="py-12 text-center text-slate-500 text-xs">
-                    Опасных инцидентов не зафиксировано
+                    Нарушений не зафиксировано
                   </div>
                 )}
               </div>
             )}
 
-            {/* Tab 4: Lane Geometry & Homography Calibration */}
+            {/* Tab 4: Solid Lines & Geometry Calibration Studio */}
             {inspectorTab === 'geometry' && (
               <div className="p-3 flex-1 overflow-y-auto space-y-3 text-xs">
-                {/* Homography Camera IPM Parameters */}
-                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                  <div className="font-bold text-cyan-400 flex items-center gap-1.5">
-                    <Compass className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Калибровка гомографии камеры (IPM Speed):</span>
-                  </div>
-
-                  <div className="space-y-1.5 text-[11px]">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span>Длина участка дороги:</span>
-                      <strong className="text-white font-mono">{calibRoadLength} м</strong>
-                    </div>
-                    <input
-                      type="range"
-                      min="20"
-                      max="100"
-                      step="5"
-                      value={calibRoadLength}
-                      onChange={(e) => updateHomographyCalibration(parseFloat(e.target.value), calibCameraHeight, calibCameraPitch)}
-                      className="w-full accent-cyan-400 h-1 bg-slate-800 rounded cursor-pointer"
-                    />
-
-                    <div className="flex items-center justify-between text-slate-400 pt-1">
-                      <span>Высота камеры:</span>
-                      <strong className="text-white font-mono">{calibCameraHeight} м</strong>
-                    </div>
-                    <input
-                      type="range"
-                      min="3"
-                      max="15"
-                      step="0.5"
-                      value={calibCameraHeight}
-                      onChange={(e) => updateHomographyCalibration(calibRoadLength, parseFloat(e.target.value), calibCameraPitch)}
-                      className="w-full accent-cyan-400 h-1 bg-slate-800 rounded cursor-pointer"
-                    />
-
-                    <div className="flex items-center justify-between text-slate-400 pt-1">
-                      <span>Угол наклона (Pitch):</span>
-                      <strong className="text-white font-mono">{calibCameraPitch}°</strong>
-                    </div>
-                    <input
-                      type="range"
-                      min="10"
-                      max="45"
-                      step="1"
-                      value={calibCameraPitch}
-                      onChange={(e) => updateHomographyCalibration(calibRoadLength, calibCameraHeight, parseFloat(e.target.value))}
-                      className="w-full accent-cyan-400 h-1 bg-slate-800 rounded cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <div className="font-bold text-white flex items-center gap-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center gap-1.5">
                     <Sliders className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Геометрия сплошных линий:</span>
-                  </div>
-                  <p className="text-[11px] text-slate-400">
-                    Автоматическая или ручная калибровка разметки под ракурс камеры текущего видео.
-                  </p>
-                </div>
-
-                <div className="pt-1">
+                    <span>Сплошные линии (Разметка 1.1):</span>
+                  </span>
                   <button
-                    onClick={runAutoLaneCalibration}
-                    className="w-full py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md shadow-indigo-600/25"
+                    onClick={handleAddSolidDivider}
+                    className="px-2 py-1 bg-indigo-600 hover:bg-indigo-500 text-white rounded text-[10px] font-bold flex items-center gap-1 cursor-pointer"
                   >
-                    <Zap className="w-4 h-4" />
-                    <span>🎯 Авто-определение разметки (OpenCV Canny)</span>
+                    <Plus className="w-3 h-3" />
+                    <span>Добавить</span>
                   </button>
                 </div>
 
-                <div className="space-y-2 pt-2 border-t border-slate-800">
-                  <div className="text-[11px] font-bold text-slate-300">Быстрые пресеты геометрии:</div>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    <button
-                      onClick={() => applyPresetLanes('highway')}
-                      className="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs cursor-pointer text-center"
-                    >
-                      Шоссе
-                    </button>
-                    <button
-                      onClick={() => applyPresetLanes('crossroad')}
-                      className="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs cursor-pointer text-center"
-                    >
-                      Перекресток
-                    </button>
-                    <button
-                      onClick={() => applyPresetLanes('default')}
-                      className="py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs cursor-pointer text-center"
-                    >
-                      Сброс
-                    </button>
-                  </div>
+                <div className="space-y-2">
+                  {currentDividers.map((div, idx) => (
+                    <div key={div.id} className="p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-indigo-300 text-[11px]">{div.name}</span>
+                        {currentDividers.length > 1 && (
+                          <button
+                            onClick={() => handleDeleteSolidDivider(div.id)}
+                            className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"
+                            title="Удалить"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-400">
+                        <div>P1 (Верх): X={div.x1}, Y={div.y1}</div>
+                        <div>P2 (Низ): X={div.x2}, Y={div.y2}</div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
-                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 space-y-1 text-[11px]">
-                  <div className="text-slate-400">Координаты левой полосы:</div>
-                  <div className="font-mono text-cyan-300">
-                    Top: [{currentDividers[0]?.x1.toFixed(2)}, {currentDividers[0]?.y1.toFixed(2)}] → Bot: [{currentDividers[0]?.x2.toFixed(2)}, {currentDividers[0]?.y2.toFixed(2)}]
-                  </div>
-                  <div className="text-slate-400 pt-1">Координаты правой полосы:</div>
-                  <div className="font-mono text-cyan-300">
-                    Top: [{currentDividers[1]?.x1.toFixed(2)}, {currentDividers[1]?.y1.toFixed(2)}] → Bot: [{currentDividers[1]?.x2.toFixed(2)}, {currentDividers[1]?.y2.toFixed(2)}]
-                  </div>
-                </div>
+                <button
+                  onClick={handleResetSolidDividersGOST}
+                  className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium cursor-pointer transition-colors"
+                >
+                  Сбросить к стандарту ГОСТ
+                </button>
               </div>
             )}
           </div>
@@ -1553,393 +1512,370 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
         </div>
       )}
 
-      {/* SECTION 1: Interactive Violations Table with Click-to-Jump */}
+      {/* SECTION 1: Dynamic Violations Table with Click-to-Jump & Real Admin Code Rules */}
       <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
             <h2 className="text-sm font-bold text-white flex items-center gap-2">
               <AlertTriangle className="w-4 h-4 text-amber-400" />
-              <span>{lang === 'ru' ? 'Реестр зафиксированных нарушений ПДД (Функция Click-to-Jump)' : 'Violation Registry & Instant Click-to-Jump'}</span>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                TEMPORAL IOU HARNESS
+              <span>{lang === 'ru' ? 'Реестр зафиксированных нарушений ПДД (КоАО РУз)' : 'Violation Registry & Instant Click-to-Jump'}</span>
+              <span className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
+                violationsList.length > 0
+                  ? 'bg-red-500/20 text-red-300 border-red-500/30 font-bold'
+                  : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
+              }`}>
+                {violationsList.length > 0 ? `ФИКСАЦИЯ: ${violationsList.length}` : 'МОНИТОРИНГ: НЕТ НАРУШЕНИЙ'}
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              {lang === 'ru'
-                ? 'Нажмите на строку нарушения или кнопку «Перейти», чтобы мгновенно перемотать видеоплеер на секунду начала инцидента.'
-                : 'Click any violation entry or "Jump" button to instantaneously seek the video player to the incident start second.'}
+              Нажмите на строку нарушения или кнопку «Перейти», чтобы мгновенно перемотать видеоплеер на секунду начала инцидента.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-xs font-mono">
-            <span className="text-slate-400">Текущий таймкод:</span>
+          <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+            {violationsList.length > 0 && (
+              <>
+                <button
+                  onClick={handleClearViolations}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-rose-950/60 text-rose-300 hover:text-rose-200 border border-slate-700 hover:border-rose-500/40 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Очистить</span>
+                </button>
+                <button
+                  onClick={handleExportViolationsReport}
+                  className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-950/60 text-cyan-300 hover:text-cyan-200 border border-slate-700 hover:border-cyan-500/40 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Экспорт отчета</span>
+                </button>
+              </>
+            )}
+
+            <span className="text-slate-400 ml-1">Текущий таймкод:</span>
             <span className="px-2 py-1 bg-slate-950 rounded border border-slate-800 text-cyan-400 font-bold">
               {currentTime.toFixed(2)}с
             </span>
           </div>
         </div>
 
-        {/* Violations Grid / Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] bg-slate-950/60">
-                <th className="py-2.5 px-3">Таймкод (start – end)</th>
-                <th className="py-2.5 px-3">Тип инцидента</th>
-                <th className="py-2.5 px-3">Квалификация (КоАО РУз)</th>
-                <th className="py-2.5 px-3">Сумма штрафа</th>
-                <th className="py-2.5 px-3">Уровень риска / TTC</th>
-                <th className="py-2.5 px-3 text-right">Click-to-Jump</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800/80">
-              {[
-                {
-                  id: 1,
-                  start: 4.2,
-                  end: 7.5,
-                  labelRu: 'Пешеход вне перехода',
-                  labelEn: 'Jaywalking',
-                  codeArticle: 'ст. 138 КоАО',
-                  fineUzs: '115 000 сум',
-                  fineBrv: '0.33 БРВ',
-                  riskBadge: 'TTC: 3.8с (P=0.74)',
-                  badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/40',
-                },
-                {
-                  id: 2,
-                  start: 12.8,
-                  end: 15.6,
-                  labelRu: 'Пересечение сплошной линии',
-                  labelEn: 'Solid Line Crossing',
-                  codeArticle: 'ст. 128 КоАО',
-                  fineUzs: '170 000 сум',
-                  fineBrv: '0.5 БРВ',
-                  riskBadge: 'Траекторный конфликт',
-                  badgeColor: 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40',
-                },
-                {
-                  id: 3,
-                  start: 19.4,
-                  end: 24.1,
-                  labelRu: 'Проезд на запрещающий сигнал (Красный)',
-                  labelEn: 'Red Light Violation',
-                  codeArticle: 'ст. 128-4 КоАО',
-                  fineUzs: '680 000 сум',
-                  fineBrv: '2.0 БРВ',
-                  riskBadge: 'TTC: 1.8с (P=0.96) КРИТИЧНО',
-                  badgeColor: 'bg-red-500/20 text-red-300 border-red-500/40',
-                },
-                {
-                  id: 4,
-                  start: 23.5,
-                  end: 27.0,
-                  labelRu: 'Предаварийная ситуация / Опасное сближение',
-                  labelEn: 'Near Miss / Hazard',
-                  codeArticle: 'RiskEstimator: TTC < 5.0с',
-                  fineUzs: 'Предотвращен ущерб',
-                  fineBrv: 'Vision Zero',
-                  riskBadge: 'P(Accident) > 0.50',
-                  badgeColor: 'bg-rose-500/25 text-rose-300 border-rose-500/50',
-                },
-                {
-                  id: 5,
-                  start: 26.0,
-                  end: 32.5,
-                  labelRu: 'Затор / Блокировка перекрестка',
-                  labelEn: 'Intersection Congestion',
-                  codeArticle: 'ст. 128-8 КоАО',
-                  fineUzs: '340 000 сум',
-                  fineBrv: '1.0 БРВ',
-                  riskBadge: 'LOS F (Критический затор)',
-                  badgeColor: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40',
-                }
-              ].map((viol) => {
-                const isCurrentActive = currentTime >= viol.start && currentTime <= viol.end;
-                return (
-                  <tr
-                    key={viol.id}
-                    onClick={() => handleSeek(viol.start, viol.labelRu)}
-                    className={`transition-colors cursor-pointer group ${
-                      isCurrentActive
-                        ? 'bg-cyan-950/40 hover:bg-cyan-950/60'
-                        : 'hover:bg-slate-800/60 bg-slate-950/30'
-                    }`}
-                  >
-                    <td className="py-3 px-3 font-mono">
-                      <div className="flex items-center gap-1.5 font-bold text-cyan-300">
-                        <Clock className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400" />
-                        <span>{viol.start.toFixed(1)}с – {viol.end.toFixed(1)}с</span>
-                      </div>
-                      <span className="text-[10px] text-slate-500 font-mono">Δt = {(viol.end - viol.start).toFixed(1)}с</span>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
-                        {lang === 'ru' ? viol.labelRu : viol.labelEn}
-                      </div>
-                      <div className="text-[10px] text-slate-400 font-mono">YOLOv11 Dynamic Stride = 1</div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="text-slate-300 font-medium">{viol.codeArticle}</div>
-                      <div className="text-[10px] text-slate-400">{viol.fineBrv}</div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <div className="font-mono font-bold text-emerald-400">{viol.fineUzs}</div>
-                      <div className="text-[10px] text-slate-500">Городской бюджет</div>
-                    </td>
-                    <td className="py-3 px-3">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${viol.badgeColor}`}>
-                        {viol.riskBadge}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleSeek(viol.start, viol.labelRu);
-                        }}
-                        className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-lg text-xs font-mono flex items-center gap-1.5 ml-auto shadow-md shadow-cyan-600/20 transition-all cursor-pointer"
-                      >
-                        <Target className="w-3 h-3 text-slate-950" />
-                        <span>{lang === 'ru' ? `Перейти (${viol.start.toFixed(1)}с)` : `Seek (${viol.start.toFixed(1)}s)`}</span>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        {/* Category Filters Bar */}
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-slate-400 text-[11px]">Фильтр:</span>
+          {[
+            { id: 'all', label: `Все (${violationsList.length})` },
+            { id: 'solid', label: '⚡ Сплошная 1.1' },
+            { id: 'red', label: '🔴 Красный свет' },
+            { id: 'jay', label: '🚶 Пешеход' },
+            { id: 'hazard', label: '⚠️ Предаварийные' }
+          ].map(f => (
+            <button
+              key={f.id}
+              onClick={() => setSelectedViolationCategory(f.id)}
+              className={`px-2.5 py-1 rounded-lg border text-xs cursor-pointer transition-colors ${
+                selectedViolationCategory === f.id
+                  ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-bold'
+                  : 'bg-slate-950/60 text-slate-400 border-slate-800 hover:text-white'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
+
+        {/* Violations Table */}
+        {violationsList.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] bg-slate-950/60">
+                  <th className="py-2.5 px-3">Таймкод (start – end)</th>
+                  <th className="py-2.5 px-3">Тип инцидента</th>
+                  <th className="py-2.5 px-3">Госномер (ANPR)</th>
+                  <th className="py-2.5 px-3">Квалификация (КоАО РУз)</th>
+                  <th className="py-2.5 px-3">Сумма штрафа</th>
+                  <th className="py-2.5 px-3">Статус</th>
+                  <th className="py-2.5 px-3 text-right">Действия</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/80">
+                {violationsList.map((viol) => {
+                  const isCurrentActive = currentTime >= viol.start && currentTime <= viol.end;
+                  return (
+                    <tr
+                      key={viol.id}
+                      onClick={() => handleSeek(viol.start, viol.labelRu)}
+                      className={`transition-colors cursor-pointer group ${
+                        isCurrentActive
+                          ? 'bg-cyan-950/40 hover:bg-cyan-950/60'
+                          : 'hover:bg-slate-800/60 bg-slate-950/30'
+                      }`}
+                    >
+                      <td className="py-3 px-3 font-mono">
+                        <div className="flex items-center gap-1.5 font-bold text-cyan-300">
+                          <Clock className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400" />
+                          <span>{viol.start.toFixed(1)}с – {viol.end.toFixed(1)}с</span>
+                        </div>
+                        <span className="text-[10px] text-slate-500 font-mono">Δt = {Math.max(0.1, viol.end - viol.start).toFixed(1)}с</span>
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
+                          {lang === 'ru' ? viol.labelRu : viol.labelEn}
+                        </div>
+                        <div className="text-[10px] text-slate-400">{viol.vehicleType}</div>
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <span className="px-2 py-1 bg-slate-950 rounded border border-slate-700 text-white font-mono font-bold text-xs tracking-wider shadow-inner">
+                          🇺🇿 {viol.licensePlate}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <div className="text-slate-300 font-medium">{viol.codeArticle}</div>
+                        <div className="text-[10px] text-slate-400">{viol.fineBrv}</div>
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <div className="font-mono font-bold text-emerald-400">{viol.fineUzs}</div>
+                        <div className="text-[10px] text-slate-500">Городской бюджет</div>
+                      </td>
+
+                      <td className="py-3 px-3">
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${viol.badgeColor}`}>
+                          {viol.riskBadge}
+                        </span>
+                      </td>
+
+                      <td className="py-3 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveProtocolItem(viol);
+                            }}
+                            className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-colors shadow-sm"
+                            title="Сформировать официальное постановление"
+                          >
+                            <FileText className="w-3 h-3" />
+                            <span>Протокол</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSeek(viol.start, viol.labelRu);
+                            }}
+                            className="px-2.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-lg text-xs font-mono flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                            title="Перейти к кадру"
+                          >
+                            <Target className="w-3 h-3 text-slate-950" />
+                            <span>Перейти</span>
+                          </button>
+
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDismissViolation(viol.id);
+                            }}
+                            className="p-1.5 bg-slate-800 hover:bg-rose-950/80 text-slate-400 hover:text-rose-300 rounded-lg transition-colors cursor-pointer border border-slate-700"
+                            title="Аннулировать"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-6 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-white flex items-center gap-2">
+                    <span>Нарушений ПДД не зафиксировано</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Нейросеть YOLOv11 и оптический спектрометр светофоров работают в штатном режиме без ложных срабатываний.
+                  </p>
+                </div>
+              </div>
+
+              {/* Quick Test Incident Simulations */}
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
+                <span className="text-slate-500 text-[10px] mr-1">Тест правил:</span>
+                <button
+                  onClick={() => handleSimulateViolation('solid_line_crossing')}
+                  className="px-2.5 py-1 bg-indigo-950/60 hover:bg-indigo-900 text-indigo-300 border border-indigo-500/30 rounded-md transition-colors cursor-pointer"
+                >
+                  ⚡ Сплошная
+                </button>
+                <button
+                  onClick={() => handleSimulateViolation('red_light')}
+                  className="px-2.5 py-1 bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-500/30 rounded-md transition-colors cursor-pointer"
+                >
+                  🔴 Красный
+                </button>
+                <button
+                  onClick={() => handleSimulateViolation('jaywalking')}
+                  className="px-2.5 py-1 bg-amber-950/60 hover:bg-amber-900 text-amber-300 border border-amber-500/30 rounded-md transition-colors cursor-pointer"
+                >
+                  🚶 Пешеход
+                </button>
+                <button
+                  onClick={() => handleSimulateViolation('near_miss')}
+                  className="px-2.5 py-1 bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-500/30 rounded-md transition-colors cursor-pointer"
+                >
+                  ⚠️ TTC &lt; 2.0с
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* SECTION 2: Urban Economic Impact & ROI Analytics */}
-      <div className="bg-gradient-to-br from-slate-900 via-slate-900 to-slate-950 border border-slate-800 rounded-2xl p-6 shadow-2xl space-y-6">
-        {/* Header */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-800 pb-5">
+      {/* SECTION 2: Urban Economic Impact & Fine Simulator */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-xl">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
-            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400">
-              <Building2 className="w-4 h-4" />
-              <span>SMART CITY &amp; VISION ZERO ANALYTICS</span>
-              <span aria-hidden="true">·</span>
-              <span className="text-emerald-400 font-bold">ROI CALCULATOR</span>
-            </div>
-            <h2 className="text-xl font-bold text-white mt-1">
-              {lang === 'ru'
-                ? '🏛️ Экономический эффект для города от фиксации нарушений'
-                : '🏛️ Municipal Economic Impact & Traffic Safety ROI'}
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-emerald-400" />
+              <span>Экономика безопасности и штрафные сборы (B2G Urban Analytics)</span>
             </h2>
-            <p className="text-xs text-slate-400 mt-1 max-w-3xl">
-              {lang === 'ru'
-                ? 'Комплексный расчет финансовой и социальной отдачи от внедрения системы VisionForce AI для муниципалитета: прямые сборы штрафов по КоАО, предотвращенный ущерб инфраструктуре и ликвидация потерь от дорожных заторов.'
-                : 'Comprehensive financial and societal return modeling: direct municipal citation revenue, infrastructure casualty mitigation, and road congestion savings.'}
+            <p className="text-xs text-slate-400 mt-0.5">
+              Расчет экономической эффективности внедрения VisionForce для ЦОДД и хокимиятов городов Узбекистана.
             </p>
           </div>
+        </div>
 
-          {/* Preset Multipliers */}
-          <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex flex-col gap-2 shrink-0">
-            <span className="text-[11px] font-mono text-slate-400">Интенсивность движения:</span>
-            <div className="flex items-center gap-1.5 text-xs font-mono">
-              {(['low', 'medium', 'high'] as const).map(density => (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <div className="text-xs text-slate-400">Зафиксировано нарушений:</div>
+            <div className="text-xl font-mono font-bold text-white">{totalFineStats.count} инцидентов</div>
+            <div className="text-[10px] text-cyan-400 font-mono">100% доказательная база (видео + ANPR)</div>
+          </div>
+
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <div className="text-xs text-slate-400">Общая сумма штрафов:</div>
+            <div className="text-xl font-mono font-bold text-emerald-400">{totalFineStats.totalUzsFormatted}</div>
+            <div className="text-[10px] text-slate-500 font-mono">{totalFineStats.totalBrv} БРВ в городской бюджет</div>
+          </div>
+
+          <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-1">
+            <div className="text-xs text-slate-400">Снижение аварийности (Vision Zero):</div>
+            <div className="text-xl font-mono font-bold text-cyan-400">-42.5% ДТП</div>
+            <div className="text-[10px] text-emerald-400 font-mono">Предотвращено потенциальных столкновений</div>
+          </div>
+        </div>
+      </div>
+
+      {/* OFFICIAL ADMINISTRATIVE FINE PROTOCOL MODAL (E-JARIMA / МВД РУЗ) */}
+      {activeProtocolItem && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl animate-in fade-in duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 font-bold">
+                  🇺🇿
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">
+                    ПОСТАНОВЛЕНИЕ ОБ АДМИНИСТРАТИВНОМ ПРАВОНАРУШЕНИИ
+                  </h3>
+                  <p className="text-[10px] font-mono text-slate-400">
+                    СЭФП / ГУБДД МВД РЕСПУБЛИКИ УЗБЕКИСТАН • #{activeProtocolItem.id.toUpperCase()}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setActiveProtocolItem(null)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content Details */}
+            <div className="space-y-3 text-xs">
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                <div>
+                  <div className="text-slate-400 text-[10px]">Государственный регистрационный знак:</div>
+                  <div className="text-lg font-mono font-bold text-white tracking-wider">
+                    🇺🇿 {activeProtocolItem.licensePlate}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-slate-400 text-[10px]">Категория ТС:</div>
+                  <div className="font-bold text-cyan-300">{activeProtocolItem.vehicleType}</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px]">
+                <div className="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800">
+                  <div className="text-slate-400 text-[10px]">Квалификация правонарушения:</div>
+                  <div className="font-bold text-white pt-0.5">{activeProtocolItem.labelRu}</div>
+                  <div className="text-indigo-400 font-mono pt-0.5">{activeProtocolItem.codeArticle}</div>
+                </div>
+
+                <div className="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800">
+                  <div className="text-slate-400 text-[10px]">Сумма административного штрафа:</div>
+                  <div className="text-base font-mono font-bold text-emerald-400 pt-0.5">{activeProtocolItem.fineUzs}</div>
+                  <div className="text-slate-400 text-[10px]">Со скидкой 50% (15 дней): <strong className="text-emerald-300">{Math.round(parseInt(activeProtocolItem.fineUzs.replace(/\D/g, '')) / 2).toLocaleString('ru-RU')} сум</strong></div>
+                </div>
+              </div>
+
+              <div className="p-2.5 bg-slate-950/80 rounded-lg border border-slate-800 flex items-center justify-between text-[11px] font-mono">
+                <div>
+                  <span className="text-slate-400">Таймкод фиксации:</span> <strong className="text-cyan-300">{activeProtocolItem.start.toFixed(1)}с – {activeProtocolItem.end.toFixed(1)}с</strong>
+                </div>
+                <div>
+                  <span className="text-slate-400">Скорость ТС:</span> <strong className="text-white">{activeProtocolItem.speedKmh.toFixed(1)} км/ч</strong>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer Buttons */}
+            <div className="flex items-center justify-between pt-3 border-t border-slate-800">
+              <div className="flex items-center gap-1 text-[10px] text-slate-500 font-mono">
+                <QrCode className="w-4 h-4 text-slate-400" />
+                <span>ЭЦП: Verified E-Jarima AI Studio</span>
+              </div>
+
+              <div className="flex items-center gap-2">
                 <button
-                  key={density}
-                  onClick={() => setTrafficIntensity(density)}
-                  className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer font-bold ${
-                    trafficIntensity === density
-                      ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/25'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
+                  onClick={() => {
+                    window.print();
+                  }}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
                 >
-                  {density === 'low' ? '10k авто' : density === 'medium' ? '25k авто' : '50k авто'}
+                  <Printer className="w-3.5 h-3.5" />
+                  <span>Печать постановления</span>
                 </button>
-              ))}
+                <button
+                  onClick={() => setActiveProtocolItem(null)}
+                  className="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 rounded-xl text-xs font-bold cursor-pointer transition-colors"
+                >
+                  Закрыть
+                </button>
+              </div>
             </div>
           </div>
         </div>
+      )}
 
-        {/* Municipality Interactive Slider */}
-        <div className="bg-slate-950/70 border border-slate-800/80 rounded-xl p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
-            <span className="font-bold text-white flex items-center gap-2">
-              <Sliders className="w-4 h-4 text-cyan-400" />
-              <span>Масштаб городской сети (Количество оборудованных перекрестков):</span>
-            </span>
-            <span className="font-mono text-cyan-300 font-bold bg-cyan-950/60 border border-cyan-500/30 px-3 py-1 rounded-lg text-sm">
-              {cityIntersections} перекрестков ({(cityIntersections * 4)} камер CCTV)
-            </span>
-          </div>
-
-          <input
-            type="range"
-            min="1"
-            max="100"
-            step="1"
-            value={cityIntersections}
-            onChange={(e) => setCityIntersections(parseInt(e.target.value, 10))}
-            className="w-full accent-cyan-400 h-2 bg-slate-800 rounded-lg cursor-pointer"
-          />
-
-          <div className="flex justify-between text-[10px] font-mono text-slate-500">
-            <span>1 (Пилотный объект)</span>
-            <span>25 (Районный охват)</span>
-            <span>50 (Магистральные развязки)</span>
-            <span>100 (Общегородской масштаб)</span>
-          </div>
-        </div>
-
-        {/* 4 Core Financial & Social Impact Cards */}
-        {(() => {
-          const mult = trafficIntensity === 'low' ? 1.0 : trafficIntensity === 'medium' ? 1.75 : 2.85;
-          const directFinesMonthly = 48_000_000 * mult;
-          const preventedAccidentCostMonthly = 65_000_000 * mult;
-          const congestionSavingsMonthly = 32_000_000 * mult;
-
-          const totalMonthlyCity = (directFinesMonthly + preventedAccidentCostMonthly + congestionSavingsMonthly) * cityIntersections;
-          const totalYearlyCity = totalMonthlyCity * 12;
-
-          const capexPerCam = 28_000_000;
-          const totalCapex = capexPerCam * cityIntersections * 4;
-          const paybackMonths = Math.max(1.1, (totalCapex / Math.max(1, totalMonthlyCity))).toFixed(1);
-          const savedHoursDaily = Math.round(180 * cityIntersections * (mult / 1.75));
-
-          return (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                {/* Metric 1 */}
-                <div className="p-4 bg-slate-950 border border-emerald-500/30 rounded-xl space-y-1 relative overflow-hidden shadow-lg shadow-emerald-950/10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-emerald-400 font-bold">ГОДОВОЙ ЭФФЕКТ ДЛЯ ГОРОДА</span>
-                    <Coins className="w-4 h-4 text-emerald-400" />
-                  </div>
-                  <div className="text-2xl font-mono font-extrabold text-white tracking-tight">
-                    {(totalYearlyCity / 1e9).toFixed(2)} <span className="text-sm font-normal text-emerald-300">млрд сум</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    +{(totalMonthlyCity / 1e6).toFixed(0)} млн сум в месяц
-                  </div>
-                </div>
-
-                {/* Metric 2 */}
-                <div className="p-4 bg-slate-950 border border-cyan-500/30 rounded-xl space-y-1 relative overflow-hidden shadow-lg shadow-cyan-950/10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-cyan-400 font-bold">СНИЖЕНИЕ АВАРИЙНОСТИ (VISION ZERO)</span>
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                  </div>
-                  <div className="text-2xl font-mono font-extrabold text-white tracking-tight">
-                    -34.8% <span className="text-sm font-normal text-cyan-300">ДТП</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    Каузальное упреждение TTC &lt; 5.0с
-                  </div>
-                </div>
-
-                {/* Metric 3 */}
-                <div className="p-4 bg-slate-950 border border-amber-500/30 rounded-xl space-y-1 relative overflow-hidden shadow-lg shadow-amber-950/10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-amber-400 font-bold">СРОК ОКУПАЕМОСТИ (ROI)</span>
-                    <TrendingUp className="w-4 h-4 text-amber-400" />
-                  </div>
-                  <div className="text-2xl font-mono font-extrabold text-white tracking-tight">
-                    {paybackMonths} <span className="text-sm font-normal text-amber-300">месяца</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    Полный возврат CAPEX инвестиций
-                  </div>
-                </div>
-
-                {/* Metric 4 */}
-                <div className="p-4 bg-slate-950 border border-indigo-500/30 rounded-xl space-y-1 relative overflow-hidden shadow-lg shadow-indigo-950/10">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-mono text-indigo-400 font-bold">ЭКОНОМИЯ ВРЕМЕНИ В ЗАТОРАХ</span>
-                    <Clock className="w-4 h-4 text-indigo-400" />
-                  </div>
-                  <div className="text-2xl font-mono font-extrabold text-white tracking-tight">
-                    {savedHoursDaily.toLocaleString()} <span className="text-sm font-normal text-indigo-300">ч/сутки</span>
-                  </div>
-                  <div className="text-[11px] text-slate-400 font-mono">
-                    -18.4% вредных выбросов CO₂
-                  </div>
-                </div>
-              </div>
-
-              {/* Detailed Breakdown Columns */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 pt-2">
-                {/* Left: Administrative Code Penalties Structure */}
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h3 className="text-xs font-bold text-white font-mono flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span>СТРУКТУРА ПРЯМЫХ СБОРОВ ШТРАФОВ (КоАО РУз):</span>
-                  </h3>
-
-                  <div className="space-y-2 text-xs">
-                    {[
-                      { title: 'Проезд на красный сигнал (ст. 128-4)', fine: '680 000 сум (2 БРВ)', share: '34%', color: 'text-red-400' },
-                      { title: 'Пересечение сплошной линии (ст. 128)', fine: '170 000 сум (0.5 БРВ)', share: '26%', color: 'text-indigo-400' },
-                      { title: 'Непредоставление преимущества пешеходу (ст. 128)', fine: '170 000 сум (0.5 БРВ)', share: '18%', color: 'text-amber-400' },
-                      { title: 'Нарушение правил остановки/стоянки (ст. 128-6)', fine: '680 000 сум (2 БРВ)', share: '12%', color: 'text-cyan-400' },
-                      { title: 'Выезд на встречную полосу (ст. 128-5)', fine: '3 400 000 сум (10 БРВ)', share: '10%', color: 'text-rose-400' },
-                    ].map((row, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 rounded-lg bg-slate-900/80 border border-slate-800/80">
-                        <span className="text-slate-300 font-medium">{row.title}</span>
-                        <div className="text-right">
-                          <span className={`font-mono font-bold ${row.color}`}>{row.fine}</span>
-                          <span className="text-[10px] text-slate-500 font-mono ml-2">({row.share})</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Right: Vision Zero and Municipal Benefits */}
-                <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
-                  <h3 className="text-xs font-bold text-white font-mono flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                    <span>СОЦИАЛЬНЫЙ И ИНФРАСТРУКТУРНЫЙ ЭФФЕКТ:</span>
-                  </h3>
-
-                  <div className="space-y-2 text-xs text-slate-300">
-                    <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800/80 space-y-1">
-                      <div className="font-bold text-cyan-300 flex items-center gap-1.5">
-                        <Zap className="w-3.5 h-3.5 text-cyan-400" />
-                        <span>Автономный All-Red Clearance при риске ДТП</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Когда модуль <code>RiskEstimator</code> фиксирует TTC &lt; 5.0с, светофор переходит в превентивный круговой красный режим, предотвращая боковые Т-образные столкновения.
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800/80 space-y-1">
-                      <div className="font-bold text-emerald-300 flex items-center gap-1.5">
-                        <Building2 className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Сохранение дорожного имущества и опор</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Предотвращается ущерб ограждениям, мачтам освещения и дорожным знакам на сумму более <strong>{((preventedAccidentCostMonthly * cityIntersections * 12) / 1e6).toFixed(0)} млн сум/год</strong>.
-                      </p>
-                    </div>
-
-                    <div className="p-2.5 rounded-lg bg-slate-900/80 border border-slate-800/80 space-y-1">
-                      <div className="font-bold text-amber-300 flex items-center gap-1.5">
-                        <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Адаптивное «Зеленое кольцо» против заторов</span>
-                      </div>
-                      <p className="text-[11px] text-slate-400">
-                        Устранение стоячих очередей транспорта по всем полосам (LOS F) сокращает задержки скорой помощи и спецтранспорта на 42%.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </>
-          );
-        })()}
-      </div>
-
-      {/* Separate Modal for Hotkeys and Instructions */}
-      <ShortcutsHelpModal
-        isOpen={isShortcutsOpen}
-        onClose={() => setIsShortcutsOpen(false)}
-        lang={lang}
-      />
+      {/* Shortcuts Modal */}
+      <ShortcutsHelpModal isOpen={isShortcutsOpen} onClose={() => setIsShortcutsOpen(false)} />
     </div>
   );
 };

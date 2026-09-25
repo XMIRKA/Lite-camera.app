@@ -99,6 +99,10 @@ export interface LiveDetectedObject {
   hasCrossedSolidLine?: boolean;
   hasTriggeredRedLight?: boolean;
   hasTriggeredStopLine?: boolean;
+  hasTriggeredJaywalking?: boolean;
+  prevWheel?: { x: number; y: number };
+  prevSignedDists?: { [dividerId: string]: number };
+  licensePlate?: string;
   // Collision & Proximity Alerts
   collisionRisk?: boolean;
   conflictWithId?: number;
@@ -745,36 +749,71 @@ class RealtimeNeuralVisionEngine {
           track.lastVideoTime = currentVideoTime;
           track.missedFrames = 0;
 
-          // Wheel contact point for line crossing & trajectories
-          const wheelPoint = { x: track.renderX + track.renderW / 2, y: track.renderY + track.renderH };
+          // Wheel contact point and tire baseline for line crossing & trajectories
+          const wheelPoint = { x: track.renderX + track.renderW / 2, y: track.renderY + track.renderH * 0.95 };
+          const leftTire = { x: track.renderX + track.renderW * 0.15, y: track.renderY + track.renderH * 0.95 };
+          const rightTire = { x: track.renderX + track.renderW * 0.85, y: track.renderY + track.renderH * 0.95 };
+          const prevWheel = track.prevWheel || (track.trail.length > 0 ? track.trail[track.trail.length - 1] : wheelPoint);
 
-          // Solid line crossing detection
-          if (track.isMoving && track.trail.length > 1) {
-            const prevWheel = track.trail[track.trail.length - 1];
+          // 1. Solid line crossing detection (Multi-Test: Tire Baseline + Trajectory + Signed Dist Transition)
+          if (track.isMoving && !isPed) {
             const activeDividers = this.getSolidDividers();
             for (const divider of activeDividers) {
-              const intersected = doSegmentsIntersect(
-                prevWheel,
-                wheelPoint,
-                { x: divider.x1, y: divider.y1 },
-                { x: divider.x2, y: divider.y2 }
-              );
-              if (intersected && !track.hasCrossedSolidLine) {
+              const divP1 = { x: divider.x1, y: divider.y1 };
+              const divP2 = { x: divider.x2, y: divider.y2 };
+
+              // Check A: Tire baseline intersection
+              const tireCrossed = doSegmentsIntersect(leftTire, rightTire, divP1, divP2);
+
+              // Check B: Trajectory segment intersection
+              const trajCrossed = doSegmentsIntersect(prevWheel, wheelPoint, divP1, divP2);
+
+              // Check C: Signed distance transition across line
+              const lineDx = divider.x2 - divider.x1;
+              const lineDy = divider.y2 - divider.y1;
+              const curSigned = lineDx * (wheelPoint.y - divider.y1) - lineDy * (wheelPoint.x - divider.x1);
+              const prevSigned = (track.prevSignedDists && track.prevSignedDists[divider.id] !== undefined)
+                ? track.prevSignedDists[divider.id]
+                : curSigned;
+
+              if (!track.prevSignedDists) track.prevSignedDists = {};
+              track.prevSignedDists[divider.id] = curSigned;
+
+              const yMin = Math.min(divider.y1, divider.y2) - 0.05;
+              const yMax = Math.max(divider.y1, divider.y2) + 0.05;
+              const signedCrossed = (prevSigned * curSigned < 0) && (wheelPoint.y >= yMin && wheelPoint.y <= yMax);
+
+              if ((tireCrossed || trajCrossed || signedCrossed) && !track.hasCrossedSolidLine) {
                 track.hasCrossedSolidLine = true;
                 this.addRawEvent({
                   id: `solid_${track.id}_${Math.round(currentVideoTime * 10)}`,
                   start_sec: Math.max(0, currentVideoTime - 0.5),
-                  end_sec: currentVideoTime + 1.8,
+                  end_sec: currentVideoTime + 2.2,
                   label: 'solid_line_crossing',
-                  confidence: 0.93,
+                  confidence: 0.96,
                   description: `Транспорт #${track.id} (${track.labelRu}) пересек ${divider.name}`,
                   involvedObjects: [`#${track.id} ${track.labelRu}`]
                 });
               }
             }
           }
+          track.prevWheel = wheelPoint;
 
-          // Stopped vehicle rule (>10s)
+          // 2. Jaywalking detection (pedestrian on the roadway)
+          if (isPed && wheelPoint.y > 0.40 && !track.hasTriggeredJaywalking) {
+            track.hasTriggeredJaywalking = true;
+            this.addRawEvent({
+              id: `jay_${track.id}_${Math.round(currentVideoTime * 10)}`,
+              start_sec: Math.max(0, currentVideoTime - 0.4),
+              end_sec: currentVideoTime + 2.5,
+              label: 'jaywalking',
+              confidence: 0.94,
+              description: `Пешеход #${track.id} на проезжей части вне регулируемого перехода`,
+              involvedObjects: [`#${track.id} Пешеход`]
+            });
+          }
+
+          // 3. Stopped vehicle rule (>10s)
           if (track.stoppedDurationSec >= 10.0 && !track.hasTriggeredStoppedVehicle && this.trafficLightState !== 'RED') {
             track.hasTriggeredStoppedVehicle = true;
             this.addRawEvent({
@@ -788,26 +827,26 @@ class RealtimeNeuralVisionEngine {
             });
           }
 
-          // Red Light Running and Stop Line Crossing during RED Phase
+          // 4. Red Light Running and Stop Line Crossing during RED Phase
           const isSignalRed = this.trafficLightState === 'RED' || this.intersectionPhase.mainPhase === 'RED';
           if (isSignalRed && !isPed && track.isMoving) {
-            // Vehicle crossing the stop-line area (y > 0.65) while moving forward on red light
-            if (wheelPoint.y > 0.65 && !track.hasTriggeredRedLight && track.speedKmh > 6) {
+            // Vehicle moving past stop line area (y > 0.60) while moving forward
+            if (wheelPoint.y > 0.60 && !track.hasTriggeredRedLight && track.speedKmh > 5.0) {
               track.hasTriggeredRedLight = true;
               this.addRawEvent({
                 id: `red_${track.id}_${Math.round(currentVideoTime * 10)}`,
-                start_sec: Math.max(0, currentVideoTime - 0.8),
-                end_sec: currentVideoTime + 2.5,
+                start_sec: Math.max(0, currentVideoTime - 0.6),
+                end_sec: currentVideoTime + 2.8,
                 label: 'red_light',
-                confidence: 0.96,
+                confidence: 0.98,
                 description: `Проезд на запрещающий красный сигнал светофора (Транспорт #${track.id})`,
                 involvedObjects: [`#${track.id} ${track.labelRu}`]
               });
-            } else if (wheelPoint.y > 0.62 && wheelPoint.y <= 0.68 && !track.hasTriggeredStopLine && track.speedKmh < 10) {
+            } else if (wheelPoint.y >= 0.58 && wheelPoint.y <= 0.68 && !track.hasTriggeredStopLine && !track.hasTriggeredRedLight && track.speedKmh < 10) {
               track.hasTriggeredStopLine = true;
               this.addRawEvent({
                 id: `stopline_${track.id}_${Math.round(currentVideoTime * 10)}`,
-                start_sec: Math.max(0, currentVideoTime - 0.5),
+                start_sec: Math.max(0, currentVideoTime - 0.4),
                 end_sec: currentVideoTime + 1.8,
                 label: 'stop_line',
                 confidence: 0.92,
@@ -820,6 +859,8 @@ class RealtimeNeuralVisionEngine {
           // Status determination
           if (track.hasCrossedSolidLine) {
             track.status = 'СПЛОШНАЯ';
+          } else if (track.hasTriggeredRedLight) {
+            track.status = 'ОПАСНОСТЬ';
           } else if (track.stoppedDurationSec >= 10.0) {
             track.status = 'СТОИТ >10с';
           } else if (isReallyStopped) {
@@ -1127,6 +1168,87 @@ class RealtimeNeuralVisionEngine {
 
   public getSmoothedEvents(): TrafficEvent[] {
     return smoothAndDebounceEvents(this.rawEvents);
+  }
+
+  public clearAllEvents(): void {
+    this.rawEvents = [];
+    this.collisionLog = [];
+    this.activeTracks.forEach(t => {
+      t.hasCrossedSolidLine = false;
+      t.hasTriggeredRedLight = false;
+      t.hasTriggeredStopLine = false;
+      t.hasTriggeredStoppedVehicle = false;
+      t.hasTriggeredJaywalking = false;
+      if (t.status === 'СПЛОШНАЯ' || t.status === 'ОПАСНОСТЬ') {
+        t.status = 'ДВИЖЕНИЕ';
+      }
+    });
+  }
+
+  public simulateTestViolation(type: OfficialClass, currentVideoTime: number = 0): void {
+    const idNum = Math.floor(Math.random() * 80) + 12;
+    const t = Math.max(0, currentVideoTime);
+    if (type === 'solid_line_crossing') {
+      this.addRawEvent({
+        id: `sim_solid_${Date.now()}`,
+        start_sec: parseFloat(t.toFixed(1)),
+        end_sec: parseFloat((t + 2.4).toFixed(1)),
+        label: 'solid_line_crossing',
+        confidence: 0.96,
+        description: `Транспорт #${idNum} (Легковой) пересек Сплошную #1 (Левая)`,
+        involvedObjects: [`#${idNum} Легковой автомобиль`]
+      });
+    } else if (type === 'red_light') {
+      this.addRawEvent({
+        id: `sim_red_${Date.now()}`,
+        start_sec: parseFloat(t.toFixed(1)),
+        end_sec: parseFloat((t + 3.0).toFixed(1)),
+        label: 'red_light',
+        confidence: 0.98,
+        description: `Проезд на запрещающий сигнал (Красный) — Транспорт #${idNum}`,
+        involvedObjects: [`#${idNum} Автомобиль (Спешка)`]
+      });
+    } else if (type === 'jaywalking') {
+      this.addRawEvent({
+        id: `sim_jay_${Date.now()}`,
+        start_sec: parseFloat(t.toFixed(1)),
+        end_sec: parseFloat((t + 2.8).toFixed(1)),
+        label: 'jaywalking',
+        confidence: 0.93,
+        description: `Пешеход #${idNum} на проезжей части вне регулируемого перехода`,
+        involvedObjects: [`#${idNum} Пешеход`]
+      });
+    } else if (type === 'near_miss') {
+      this.addRawEvent({
+        id: `sim_miss_${Date.now()}`,
+        start_sec: parseFloat(t.toFixed(1)),
+        end_sec: parseFloat((t + 2.5).toFixed(1)),
+        label: 'near_miss',
+        confidence: 0.95,
+        description: `Опасное сближение / предаварийное торможение (TTC = 1.4с)`,
+        involvedObjects: [`#${idNum} Автомобиль`, `#${idNum + 1} Автомобиль`]
+      });
+    } else if (type === 'stopped_vehicle') {
+      this.addRawEvent({
+        id: `sim_stop_${Date.now()}`,
+        start_sec: parseFloat(Math.max(0, t - 10.0).toFixed(1)),
+        end_sec: parseFloat((t + 2.0).toFixed(1)),
+        label: 'stopped_vehicle',
+        confidence: 0.94,
+        description: `Остановка на проезжей части > 10с (Транспорт #${idNum})`,
+        involvedObjects: [`#${idNum} Грузовой транспорт`]
+      });
+    } else if (type === 'congestion') {
+      this.addRawEvent({
+        id: `sim_cong_${Date.now()}`,
+        start_sec: parseFloat(t.toFixed(1)),
+        end_sec: parseFloat((t + 5.0).toFixed(1)),
+        label: 'congestion',
+        confidence: 0.91,
+        description: `Блокировка перекрестка / Затор LOS F`,
+        involvedObjects: [`Колонна транспорта (12 ТС)`]
+      });
+    }
   }
 
   public reset(): void {
