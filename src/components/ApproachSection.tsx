@@ -16,7 +16,7 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="font-semibold text-cyan-400 font-mono">VisionForce Architecture</span>
           <span aria-hidden="true">·</span>
-          <span>End-to-End Neural Pipeline</span>
+          <span>End-to-End Computer Vision Pipeline</span>
           <span aria-hidden="true">·</span>
           <span>Real-Time Performance</span>
         </div>
@@ -25,8 +25,8 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
         </h2>
         <p className="text-sm text-slate-400 mt-1 max-w-3xl">
           {lang === 'ru'
-            ? 'Сбалансированный производственный стек: нейросетевой детектор YOLOv8, мультиобъектный трекер ByteTrack, библиотека OpenCV (cv2) для покадровой нарезки видео .mp4 и отрисовки bounding box, а также интерактивный веб-интерфейс на Streamlit.'
-            : 'Production-ready stack: YOLOv8 neural detector, ByteTrack multi-object tracker, OpenCV (cv2) for .mp4 video frame slicing and bounding box overlay rendering, with a Streamlit web application.'}
+            ? 'Сбалансированный производственный стек: CV-детектор YOLOv8, мультиобъектный трекер ByteTrack, библиотека OpenCV (cv2) для покадровой нарезки видео .mp4 и отрисовки bounding box, а также интерактивный веб-интерфейс на Streamlit.'
+            : 'Production-ready stack: YOLOv8 CV detector, ByteTrack multi-object tracker, OpenCV (cv2) for .mp4 video frame slicing and bounding box overlay rendering, with a Streamlit web application.'}
         </p>
       </div>
 
@@ -59,7 +59,7 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
               <span className="text-cyan-400 font-bold">STAGE 02</span>
               <span className="text-emerald-400 font-bold">YOLOv8</span>
             </div>
-            <h4 className="text-sm font-bold text-white">{lang === 'ru' ? 'Детектор YOLOv8' : 'YOLOv8 Neural Detection'}</h4>
+            <h4 className="text-sm font-bold text-white">{lang === 'ru' ? 'Детектор YOLOv8' : 'YOLOv8 Object Detection'}</h4>
             <p className="text-xs text-slate-400">
               {lang === 'ru'
                 ? 'Быстрая и точная детекция участников движения (пешеходы, легковые автомобили, автобусы, грузовики) с вероятностным скорингом.'
@@ -102,7 +102,7 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
           <div className="flex items-center gap-2 text-emerald-400 font-mono text-xs font-bold uppercase">
             <Cpu className="w-4 h-4" />
-            {lang === 'ru' ? 'Обучаемые компоненты (Learned)' : 'Learned Components (Deep Neural)'}
+            {lang === 'ru' ? 'Обучаемые компоненты (Learned CV)' : 'Learned Components (Deep Vision)'}
           </div>
           <p className="text-xs text-slate-400">
             {lang === 'ru'
@@ -111,7 +111,7 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
           </p>
           <ul className="text-xs space-y-2.5 text-slate-300 font-mono">
             <li className="p-2.5 bg-slate-950 rounded border border-slate-800/80">
-              <strong className="text-white block font-sans">1. Нейросетевой детектор (YOLOv8)</strong>
+              <strong className="text-white block font-sans">1. CV-детектор объектов (YOLOv8)</strong>
               {lang === 'ru'
                 ? 'Быстрая многомасштабная модель Ultralytics YOLOv8 для точной локализации автомобилей, автобусов, пешеходов и препятствий на дороге.'
                 : 'Ultralytics YOLOv8 high-speed multi-scale detector for precise bounding box localization of cars, buses, pedestrians, and obstacles.'}
@@ -230,7 +230,7 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
           DATASETS USED &amp; OPEN-WEIGHTS LICENSING COMPLIANCE
         </h3>
         <p className="text-xs text-slate-400">
-          As mandated in the challenge rules: strictly open weights, zero proprietary API calls (no OpenAI, Gemini, or Anthropic during inference).
+          As mandated in the challenge rules: strictly open-source weights (YOLOv8 + ByteTrack + OpenCV), 100% offline local Computer Vision processing, zero proprietary external cloud APIs.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">

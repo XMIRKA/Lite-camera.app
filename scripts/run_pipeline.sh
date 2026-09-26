@@ -19,10 +19,10 @@ python3 scripts/collision_vector_forecast.py
 python3 scripts/speed_estimation_radar.py
 
 # 3. Process Sample Video
-INPUT_VIDEO=${1:-"sample_traffic.mp4"}
+INPUT_VIDEO=${1:-"vehicle-speed-estimation-main/content/highway.mp4"}
 if [ -f "$INPUT_VIDEO" ]; then
     echo "[3/4] Processing input video: $INPUT_VIDEO..."
-    python3 scripts/pipeline_yolov8_bytetrack.py --input "$INPUT_VIDEO" --output "output_processed.mp4" --weights yolov8m.pt
+    python3 scripts/pipeline_yolov10_deepsort.py --input "$INPUT_VIDEO" --output "output_processed.mp4" --weights yolov10n.pt
 else
     echo "[3/4] Notice: No local input video '$INPUT_VIDEO' provided. Skipping video inference."
 fi

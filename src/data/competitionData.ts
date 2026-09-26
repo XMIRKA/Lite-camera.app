@@ -164,7 +164,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
     portfolio: '',
     previousProjects: [
       { title: 'VisionForce Core', desc: 'Автономный движок видеоаналитики дорожного движения в реальном времени.' },
-      { title: 'Traffic Dynamics AI', desc: 'Моделирование и пространственный анализ дорожного трафика.' },
+      { title: 'Traffic Dynamics CV', desc: 'Моделирование и пространственный анализ дорожного трафика.' },
     ],
   },
   {
@@ -183,7 +183,7 @@ export const TEAM_MEMBERS: TeamMember[] = [
   },
   {
     name: 'Muzaffar Solixojaev',
-    role: 'AI & Systems Engineer',
+    role: 'CV & Systems Engineer',
     bio: 'Разработчик интеллектуальных систем и анализа траекторий движения. Оптимизация производительности и расчет рисков аварийных ситуаций.',
     contribution: 'Реализация логики упреждающего анализа аварийности, расчет временных горизонтов опасности и тестирование сценариев.',
     avatarUrl: '',

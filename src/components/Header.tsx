@@ -27,7 +27,7 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, lang, s
               <span className="text-base font-bold tracking-tight text-white flex items-center gap-2">
                 VisionForce
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-mono font-bold border border-cyan-500/40">
-                  AI VISION
+                  CV VISION
                 </span>
               </span>
               <span className="text-[11px] text-slate-400">

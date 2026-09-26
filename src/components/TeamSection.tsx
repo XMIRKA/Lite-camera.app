@@ -31,15 +31,15 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ lang }) => {
           <span aria-hidden="true">·</span>
           <span>Core Engineering Team</span>
           <span aria-hidden="true">·</span>
-          <span>Computer Vision &amp; AI</span>
+          <span>Computer Vision &amp; Robotics</span>
         </div>
         <h2 className="text-2xl font-bold text-white mt-1">
           {lang === 'ru' ? 'Разработчики системы: Team VisionForce' : 'Authors & Creators: Team VisionForce'}
         </h2>
         <p className="text-sm text-slate-400 mt-1 max-w-3xl">
           {lang === 'ru'
-            ? 'Инженерная команда создателей системы интеллектуального видеомониторинга дорожного движения VisionForce AI.'
-            : 'Engineering team behind the VisionForce real-time intelligent traffic video analytics platform.'}
+            ? 'Инженерная команда создателей системы видеомониторинга дорожного движения VisionForce.'
+            : 'Engineering team behind the VisionForce real-time traffic video analytics platform.'}
         </p>
       </div>
 
@@ -129,7 +129,7 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ lang }) => {
               <div className="pt-4 mt-5 border-t border-slate-800 flex items-center justify-between text-xs font-mono">
                 <div className="flex items-center gap-2 text-slate-400">
                   <ShieldCheck className="w-4 h-4 text-cyan-400" />
-                  <span className="text-[11px] text-slate-400">VisionForce AI Team</span>
+                  <span className="text-[11px] text-slate-400">VisionForce CV Team</span>
                 </div>
 
                 {member.github && (

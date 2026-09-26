@@ -32,7 +32,7 @@ export const TechnicalReport: React.FC<TechnicalReportProps> = ({ lang }) => {
         {/* Paper Header */}
         <div className="text-center pb-6 border-b border-slate-800 space-y-2">
           <span className="text-xs font-mono text-cyan-400 uppercase tracking-wider">
-            VisionForce AI — Technical Architecture & Research Report
+            VisionForce CV — Technical Architecture & Research Report
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">
             High-Speed Traffic Video Analytics via YOLOv8, ByteTrack, OpenCV, and Streamlit

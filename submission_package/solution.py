@@ -57,17 +57,18 @@ CLASSES: list[str] = [
 
 RISK_HORIZON_SEC = 5.0  # Порог каузального упреждения риска (5 секунд до ДТП)
 
-# Инициализация локальной модели YOLOv11
+# Инициализация локальной модели YOLO (YOLOv10 / YOLOv11)
 model = None
 try:
     from ultralytics import YOLO
-    model = YOLO("yolo11n.pt")
+    for mname in ["yolov10n.pt", "yolo11n.pt", "vehicle-speed-estimation-main/yolov10n.pt", "yolov8n.pt"]:
+        try:
+            model = YOLO(mname)
+            break
+        except Exception:
+            continue
 except Exception:
-    try:
-        from ultralytics import YOLO
-        model = YOLO("yolov8n.pt")
-    except Exception:
-        model = None
+    model = None
 
 
 # ============================================================================

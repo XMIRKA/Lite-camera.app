@@ -615,7 +615,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
             <div className="space-y-1">
               <div className="flex items-center gap-2">
                 <span className="text-2xl">🚦</span>
-                <h3 className="text-lg font-bold text-white tracking-wide">VisionForce AI</h3>
+                <h3 className="text-lg font-bold text-white tracking-wide">VisionForce CV</h3>
               </div>
               <p className="text-xs text-[#00f2fe] font-mono font-semibold">
                 Streamlit Video Analytics Engine
@@ -637,7 +637,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
               </div>
               <div className="text-slate-300 flex items-center gap-1.5 text-[11px]">
                 <span>⚡</span>
-                <span>Muzaffar Solixojaev — AI & Telemetry</span>
+                <span>Muzaffar Solixojaev — CV & Telemetry</span>
               </div>
             </div>
 

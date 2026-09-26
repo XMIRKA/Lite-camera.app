@@ -1,5 +1,5 @@
 /**
- * VisionForce AI — High-Precision Multi-Zone Optical Traffic Light Detector & Phase Interlocking Engine
+ * VisionForce CV — High-Precision Multi-Zone Optical Traffic Light Detector & Phase Interlocking Engine
  * 
  * Compliant with Traffic Engineering & ПДД standards (ГОСТ Р 52282 / NEMA TS 2):
  * 1. True 3-Zone Vertical/Horizontal Lens Photometry:
@@ -418,5 +418,73 @@ export function evaluateIntersectionInterlocking(
     activePhaseDescriptionRu,
     interlockCompliant: true,
     signals: detectedSignals
+  };
+}
+
+/**
+ * Optical Pixel Photometry for 2-Lens Pedestrian Traffic Light (Top RED, Bottom GREEN)
+ */
+export function analyzePedestrianTrafficLight(
+  ctx: CanvasRenderingContext2D,
+  bbox: { x: number; y: number; w: number; h: number },
+  canvasWidth: number = 640,
+  canvasHeight: number = 360
+): {
+  state: 'RED' | 'GREEN';
+  confidence: number;
+  colorHex: string;
+} {
+  const px = Math.max(0, Math.min(canvasWidth - 8, Math.floor(bbox.x * canvasWidth)));
+  const py = Math.max(0, Math.min(canvasHeight - 12, Math.floor(bbox.y * canvasHeight)));
+  const pw = Math.max(8, Math.min(canvasWidth - px, Math.floor(bbox.w * canvasWidth)));
+  const ph = Math.max(16, Math.min(canvasHeight - py, Math.floor(bbox.h * canvasHeight)));
+
+  let imgData: ImageData;
+  try {
+    imgData = ctx.getImageData(px, py, pw, ph);
+  } catch {
+    return { state: 'GREEN', confidence: 0.60, colorHex: '#10b981' };
+  }
+
+  const data = imgData.data;
+  const rowStride = pw * 4;
+
+  let redScore = 0;
+  let greenScore = 0;
+
+  for (let y = 0; y < ph; y++) {
+    const relY = y / ph;
+    const isTopZone = relY < 0.50;
+    const isBotZone = relY >= 0.50;
+
+    for (let x = 0; x < pw; x++) {
+      const idx = y * rowStride + x * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const { h, s, v } = rgbToHsv(r, g, b);
+
+      if (isTopZone && (h >= 335 || h <= 25) && (s > 0.25 || (r > 150 && r > g * 1.3))) {
+        redScore += (r - Math.max(g, b)) * s * v * 2.5;
+      }
+
+      if (isBotZone && (h >= 85 && h <= 195) && (s > 0.22 || (g > 140 && g > r * 1.2))) {
+        greenScore += (g - r) * s * v * 2.5;
+      }
+    }
+  }
+
+  if (redScore >= greenScore) {
+    return {
+      state: 'RED',
+      confidence: Math.min(0.98, redScore / (redScore + greenScore + 1) + 0.3),
+      colorHex: '#ef4444'
+    };
+  }
+
+  return {
+    state: 'GREEN',
+    confidence: Math.min(0.98, greenScore / (redScore + greenScore + 1) + 0.3),
+    colorHex: '#10b981'
   };
 }

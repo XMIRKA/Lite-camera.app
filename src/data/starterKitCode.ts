@@ -10,7 +10,7 @@ export const STARTER_KIT_FILES: {
     description: 'Полный пайплайн анализа видео: YOLOv8 + ByteTrack + радар скорости + детектор сближений + экспорт в MP4',
     code: `#!/usr/bin/env python3
 """
-VisionForce AI — Complete YOLOv8 + ByteTrack End-to-End Processing Pipeline
+VisionForce CV — Complete YOLOv8 + ByteTrack End-to-End Processing Pipeline
 File: pipeline_yolov8_bytetrack.py
 Authors: (El Capitano) Alisherov Mirkamol, Normatov Bekzod, Muzaffar Solixojaev
 
@@ -88,7 +88,7 @@ class VideoTrafficPipeline:
         iou_thresh: float = 0.45,
         device: str = "cuda" if os.system("nvidia-smi > /dev/null 2>&1") == 0 else "cpu"
     ):
-        print(f"[VisionForce AI] Loading YOLOv8 model: {weights_path} on {device.upper()}...")
+        print(f"[VisionForce CV] Loading YOLOv8 model: {weights_path} on {device.upper()}...")
         self.model = YOLO(weights_path)
         self.conf_thresh = conf_thresh
         self.iou_thresh = iou_thresh
@@ -211,7 +211,7 @@ class VideoTrafficPipeline:
     description: 'Расчет плотности дорожного потока по методике HCM/ГОСТ: процент занятости полотна (Road Occupancy %) и уровень обслуживания (LOS A–F)',
     code: `#!/usr/bin/env python3
 """
-VisionForce AI — Traffic Density & Road Occupancy Analyzer
+VisionForce CV — Traffic Density & Road Occupancy Analyzer
 Module: traffic_density_analyzer.py
 Authors: (El Capitano) Alisherov Mirkamol, Normatov Bekzod, Muzaffar Solixojaev
 
@@ -359,7 +359,7 @@ if __name__ == "__main__":
     description: 'Векторное прогнозирование ДТП и опасных сближений с фильтрацией ложных срабатываний (CPA, Miss Distance & TTC)',
     code: `#!/usr/bin/env python3
 """
-VisionForce AI — Collision Vector & CPA Miss-Distance Forecaster
+VisionForce CV — Collision Vector & CPA Miss-Distance Forecaster
 Module: collision_vector_forecast.py
 Authors: (El Capitano) Alisherov Mirkamol, Normatov Bekzod, Muzaffar Solixojaev
 """
@@ -497,7 +497,7 @@ if __name__ == "__main__":
     description: 'Калиброванный радар скорости с перспективным масштабированием и сглаживанием траекторий (км/ч)',
     code: `#!/usr/bin/env python3
 """
-VisionForce AI — Perspective Homography Speed Radar
+VisionForce CV — Perspective Homography Speed Radar
 File: speed_estimation_radar.py
 Authors: (El Capitano) Alisherov Mirkamol, Normatov Bekzod, Muzaffar Solixojaev
 """
@@ -572,7 +572,7 @@ if __name__ == "__main__":
     description: 'Мониторинг пешеходных переходов и фиксация непредоставления преимущества пешеходам',
     code: `#!/usr/bin/env python3
 """
-VisionForce AI — Crosswalk Safety & Yield Violation Monitor
+VisionForce CV — Crosswalk Safety & Yield Violation Monitor
 File: crosswalk_safety_monitor.py
 Authors: (El Capitano) Alisherov Mirkamol, Normatov Bekzod, Muzaffar Solixojaev
 """
@@ -666,7 +666,7 @@ if __name__ == "__main__":
     description: 'Оптическое цветовое распознавание сигналов светофора (HSV/RGB) по пикселям реального видеопотока',
     code: `#!/usr/bin/env python3
 """
-VisionForce AI — Optical Chromatic Traffic Light Detector
+VisionForce CV — Optical Chromatic Traffic Light Detector
 Module: optical_traffic_light_detector.py
 Authors: (El Capitano) Alisherov Mirkamol, Normatov Bekzod, Muzaffar Solixojaev
 """
@@ -764,7 +764,7 @@ requests>=2.31.0
     code: `#!/usr/bin/env bash
 set -e
 echo "========================================================="
-echo "🚦 VisionForce AI — Intelligent Traffic Vision Pipeline"
+echo "🚦 VisionForce CV — Intelligent Traffic Vision Pipeline"
 echo "========================================================="
 
 echo "[1/4] Checking and installing Python dependencies..."
