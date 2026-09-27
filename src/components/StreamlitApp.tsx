@@ -368,10 +368,11 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
       trafficEntities.forEach(te => {
         const match = detections.find(d => d.id === te.id);
         if (match) {
-          match.collisionRisk = te.collisionRisk;
-          match.conflictWithId = te.conflictWithId;
-          match.distanceMeters = te.distanceMeters;
-          match.ttcSeconds = te.ttcSeconds;
+          const teAny = te as any;
+          match.collisionRisk = teAny.collisionRisk;
+          match.conflictWithId = teAny.conflictWithId;
+          match.distanceMeters = teAny.distanceMeters;
+          match.ttcSeconds = teAny.ttcSeconds;
         }
       });
     } else {

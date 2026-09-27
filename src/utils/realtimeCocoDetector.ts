@@ -87,9 +87,11 @@ export interface RoadInfrastructureElement {
   colorHex: string;
   isAccent?: boolean; // Highlighted / User-drawn ROI focus
   lampValues?: { red: number; yellow: number; green: number };
-  // Functional Thresholds
+  // Functional Thresholds & Customization
   speedLimitKmh?: number;
   maxStopDurationSec?: number;
+  stripeCount?: number; // Custom zebra crosswalk stripe density (4 - 30)
+  angleSkew?: number; // Custom zebra crosswalk angle/skew (-30 to +30 deg)
   activeViolationsCount: number;
   enabled: boolean;
 }
