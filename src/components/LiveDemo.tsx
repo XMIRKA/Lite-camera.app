@@ -1439,13 +1439,13 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-9 gap-2.5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {/* 0. ИНТЕРАКТИВНОЕ ОБВЕДЕНИЕ СВЕТОФОРА (ROI) */}
             <div
               onClick={() => {
                 setIsDrawingROI(true);
                 setRoiType('traffic_light_auto');
-                setJumpNotice('🎯 Зажмите левую кнопку мыши и обведите светофор на видео');
+                setJumpNotice(lang === 'ru' ? '🎯 Зажмите левую кнопку мыши и обведите светофор на видео' : '🎯 Drag mouse to outline traffic light on video');
                 setTimeout(() => setJumpNotice(null), 3500);
               }}
               className={`p-2.5 bg-indigo-950/70 hover:bg-indigo-900/60 border rounded-lg cursor-pointer transition-all flex flex-col items-center text-center group shadow-md ${
@@ -1455,65 +1455,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 group-hover:scale-110 transition-transform mb-1.5">
                 <Crosshair className="w-4 h-4 animate-spin text-amber-300" />
               </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-amber-300">Обвести светофор</div>
-              <div className="text-[9px] text-indigo-300 font-mono">Акцент (ROI)</div>
+              <div className="text-[11px] font-bold text-white group-hover:text-amber-300">
+                {lang === 'ru' ? 'Обвести светофор' : 'Outline Traffic Light'}
+              </div>
+              <div className="text-[9px] text-indigo-300 font-mono">
+                {lang === 'ru' ? 'Акцент (ROI)' : 'ROI Focus'}
+              </div>
               <div className="mt-1.5 text-[9px] text-amber-300 font-mono bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">
-                {isDrawingROI ? 'Активно...' : '🎯 Выделить'}
+                {isDrawingROI ? (lang === 'ru' ? 'Активно...' : 'Active...') : (lang === 'ru' ? '🎯 Выделить' : '🎯 Highlight')}
               </div>
             </div>
 
-            {/* 1. Авто-светофор 3-секционный */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'traffic_light_auto')}
-              onClick={() => handleAddElementFromPalette('traffic_light_auto')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform mb-1.5">
-                <CircleDot className="w-4 h-4" />
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Авто-светофор</div>
-              <div className="text-[9px] text-slate-400 font-mono">3 секции (🔴🟡🟢)</div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
-              </div>
-            </div>
-
-            {/* 2. Пешеходный светофор 2-секционный */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'traffic_light_pedestrian')}
-              onClick={() => handleAddElementFromPalette('traffic_light_pedestrian')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform mb-1.5">
-                <span className="text-xs">🚶</span>
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Пеш-светофор</div>
-              <div className="text-[9px] text-slate-400 font-mono">2 секции (🔴🟢)</div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
-              </div>
-            </div>
-
-            {/* 3. Стрелка поворота */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'traffic_light_arrow')}
-              onClick={() => handleAddElementFromPalette('traffic_light_arrow')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform mb-1.5">
-                <ChevronRight className="w-4 h-4" />
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Стрелка поворота</div>
-              <div className="text-[9px] text-slate-400 font-mono">Лево/Право (⬅️)</div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
-              </div>
-            </div>
-
-            {/* 4. Стоп-линия разметки 1.12 */}
+            {/* 1. Стоп-линия разметки 1.12 */}
             <div
               draggable
               onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'stop_line')}
@@ -1523,14 +1476,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform mb-1.5">
                 <Shield className="w-4 h-4" />
               </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Стоп-линия</div>
-              <div className="text-[9px] text-slate-400 font-mono">Разметка 1.12</div>
+              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">
+                {lang === 'ru' ? 'Стоп-линия' : 'Stop Line'}
+              </div>
+              <div className="text-[9px] text-slate-400 font-mono">
+                {lang === 'ru' ? 'Разметка 1.12' : 'Marking 1.12'}
+              </div>
               <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
+                {lang === 'ru' ? '+ Добавить' : '+ Add'}
               </div>
             </div>
 
-            {/* 5. Пешеходный переход «Зебра» 1.14 */}
+            {/* 2. Пешеходный переход «Зебра» 1.14 */}
             <div
               draggable
               onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'crosswalk_zone')}
@@ -1540,14 +1497,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform mb-1.5">
                 <span className="text-xs">🦓</span>
               </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Переход «Зебра»</div>
-              <div className="text-[9px] text-slate-400 font-mono">Разметка 1.14</div>
+              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">
+                {lang === 'ru' ? 'Переход «Зебра»' : 'Crosswalk Zebra'}
+              </div>
+              <div className="text-[9px] text-slate-400 font-mono">
+                {lang === 'ru' ? 'Разметка 1.14' : 'Marking 1.14'}
+              </div>
               <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
+                {lang === 'ru' ? '+ Добавить' : '+ Add'}
               </div>
             </div>
 
-            {/* 6. Сплошная линия разметки 1.1 */}
+            {/* 3. Сплошная линия разметки 1.1 */}
             <div
               draggable
               onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'solid_line')}
@@ -1557,44 +1518,14 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform mb-1.5">
                 <span className="text-sm font-bold">┃</span>
               </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Сплошная линия</div>
-              <div className="text-[9px] text-slate-400 font-mono">Разметка 1.1</div>
+              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">
+                {lang === 'ru' ? 'Сплошная линия' : 'Solid Line'}
+              </div>
+              <div className="text-[9px] text-slate-400 font-mono">
+                {lang === 'ru' ? 'Разметка 1.1' : 'Marking 1.1'}
+              </div>
               <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
-              </div>
-            </div>
-
-            {/* 7. Зона запрета остановки 3.27 */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'no_parking_zone')}
-              onClick={() => handleAddElementFromPalette('no_parking_zone')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-red-500/10 border border-red-500/30 flex items-center justify-center text-red-400 group-hover:scale-110 transition-transform mb-1.5">
-                <span className="text-xs">🚫</span>
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Зона 3.27</div>
-              <div className="text-[9px] text-slate-400 font-mono">Стоп &gt;10 сек</div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
-              </div>
-            </div>
-
-            {/* 8. Фоторадар контроля скорости */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'speed_radar_zone')}
-              onClick={() => handleAddElementFromPalette('speed_radar_zone')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-yellow-500/10 border border-yellow-500/30 flex items-center justify-center text-yellow-400 group-hover:scale-110 transition-transform mb-1.5">
-                <Gauge className="w-4 h-4" />
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">Фоторадар</div>
-              <div className="text-[9px] text-slate-400 font-mono">Лимит 60 км/ч</div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                + Добавить
+                {lang === 'ru' ? '+ Добавить' : '+ Add'}
               </div>
             </div>
           </div>
@@ -1620,51 +1551,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 )}
               </div>
 
-              {/* Traffic Light Quick Phase Buttons */}
-              <div className="flex items-center gap-1 bg-slate-900 px-2 py-0.5 rounded-md border border-slate-800 font-mono text-[10px]">
-                <span className="text-slate-400 font-sans font-bold">Фаза:</span>
-                <button
-                  onClick={() => handleManualSignalPhase('AUTO')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-                    trafficSignalPhase === 'AUTO'
-                      ? 'bg-cyan-500 text-slate-950 font-bold'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                  title="Авто-цикл: 12с зеленый / 3с желтый / 10с красный"
-                >
-                  Авто-цикл
-                </button>
-                <button
-                  onClick={() => handleManualSignalPhase('RED')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-                    trafficSignalPhase === 'RED'
-                      ? 'bg-red-600 text-white font-bold shadow-md shadow-red-600/30'
-                      : 'text-red-400 hover:bg-red-500/20'
-                  }`}
-                >
-                  🔴 Красный
-                </button>
-                <button
-                  onClick={() => handleManualSignalPhase('YELLOW')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-                    trafficSignalPhase === 'YELLOW'
-                      ? 'bg-amber-500 text-slate-950 font-bold'
-                      : 'text-amber-400 hover:bg-amber-500/20'
-                  }`}
-                >
-                  🟡 Желтый
-                </button>
-                <button
-                  onClick={() => handleManualSignalPhase('GREEN')}
-                  className={`px-1.5 py-0.5 rounded cursor-pointer transition-colors ${
-                    trafficSignalPhase === 'GREEN'
-                      ? 'bg-emerald-600 text-white font-bold shadow-md shadow-emerald-600/30'
-                      : 'text-emerald-400 hover:bg-emerald-500/20'
-                  }`}
-                >
-                  🟢 Зеленый
-                </button>
-              </div>
+
 
               {/* Quick Vision Layers */}
               <div className="flex items-center gap-2.5 text-[11px]">
@@ -1734,10 +1621,10 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2.5 px-4 py-2 rounded-xl bg-slate-900/95 border border-cyan-400 shadow-2xl backdrop-blur-md text-xs font-mono">
                   <div className="flex items-center gap-2 text-cyan-300 font-bold">
                     <Crosshair className="w-4 h-4 animate-spin text-cyan-400" />
-                    <span>🎯 ОБВОДКА: Зажмите ЛКМ и выделите светофор на видео</span>
+                    <span>{lang === 'ru' ? '🎯 ОБВОДКА: Зажмите ЛКМ и выделите светофор на видео' : '🎯 DRAWING: Drag mouse to outline traffic light'}</span>
                   </div>
                   <span className="bg-cyan-950/80 px-2 py-0.5 rounded text-[11px] text-cyan-200 border border-cyan-800">
-                    Светофоров: {roadElements.filter(e => e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian').length}
+                    {lang === 'ru' ? 'Светофоров:' : 'Lights:'} {roadElements.filter(e => e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian').length}
                   </span>
                   <button
                     onClick={() => {
@@ -1747,7 +1634,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     }}
                     className="px-2.5 py-1 rounded bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold cursor-pointer transition-colors text-[11px]"
                   >
-                    Завершить (Esc)
+                    {lang === 'ru' ? 'Завершить (Esc)' : 'Done (Esc)'}
                   </button>
                 </div>
               )}
@@ -1807,7 +1694,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 <div className="absolute top-3 left-3 right-3 bg-amber-500/90 text-slate-950 px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-between shadow-2xl backdrop-blur border border-amber-300 animate-in fade-in slide-in-from-top-2 z-30">
                   <div className="flex items-center gap-2">
                     <Crosshair className="w-4 h-4 animate-spin" />
-                    <span>🎯 РЕЖИМ ОБВЕДЕНИЯ: Зажмите левую кнопку мыши и протяните рамку вокруг светофора на видео</span>
+                    <span>{lang === 'ru' ? '🎯 РЕЖИМ ОБВЕДЕНИЯ: Зажмите левую кнопку мыши и протяните рамку вокруг светофора на видео' : '🎯 DRAWING MODE: Press & drag mouse to create a traffic light ROI box on video'}</span>
                   </div>
                   <button
                     onClick={() => {
@@ -1817,7 +1704,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     }}
                     className="px-2 py-0.5 bg-slate-950 text-amber-300 rounded text-[10px] font-mono hover:bg-slate-900 cursor-pointer"
                   >
-                    Отмена
+                    {lang === 'ru' ? 'Отмена' : 'Cancel'}
                   </button>
                 </div>
               )}
@@ -1825,7 +1712,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               {/* Helper Drag Overlay Info */}
               <div className="absolute bottom-3 left-3 bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 px-3 py-1.5 rounded-lg text-[10px] text-cyan-300 flex items-center gap-2 select-none pointer-events-none shadow-xl">
                 <MousePointer className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Горячие клавиши: [Пробел] Плей/Пауза, [&lt;] / [&gt;] Покадровая перемотка (1 кадр) • Квадратики скрыты, активны метки скорости</span>
+                <span>
+                  {lang === 'ru'
+                    ? 'Горячие клавиши: [Пробел] Плей/Пауза, [<] / [>] Покадровая перемотка • Квадратики скрыты, активен оптический CV-детектор'
+                    : 'Hotkeys: [Space] Play/Pause, [<] / [>] Step 1 frame • Bounding boxes hidden, live optical detector active'}
+                </span>
               </div>
             </div>
 
@@ -2095,46 +1986,30 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-bold text-white flex items-center gap-1.5">
                         <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                        <span>Светофоры перекрестка:</span>
+                        <span>{lang === 'ru' ? 'Светофоры перекрестка:' : 'Intersection Traffic Lights:'}</span>
                       </span>
                       <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-mono font-bold">
-                        {roadElements.filter(e => e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian' || e.isAccent).length} активных
+                        {roadElements.filter(e => e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian' || e.isAccent).length} {lang === 'ru' ? 'активных' : 'active'}
                       </span>
                     </div>
 
-                    {/* Quick Add Buttons for Multiple Traffic Lights */}
-                    <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                    {/* Quick Add Button for Traffic Light ROI Drawing */}
+                    <div className="pt-0.5">
                       <button
                         onClick={() => {
                           setIsDrawingROI(true);
                           setRoiType('traffic_light_auto');
-                          setJumpNotice('🎯 Зажмите ЛКМ и обведите светофор на видео');
+                          setJumpNotice(lang === 'ru' ? '🎯 Зажмите ЛКМ и обведите светофор на видео' : '🎯 Click & drag mouse to highlight traffic light on video');
                           setTimeout(() => setJumpNotice(null), 3500);
                         }}
-                        className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all border ${
-                          isDrawingROI && roiType === 'traffic_light_auto'
+                        className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border ${
+                          isDrawingROI
                             ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                            : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/30 hover:border-amber-400'
+                            : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/40 hover:border-amber-400'
                         }`}
                       >
-                        <Crosshair className="w-3.5 h-3.5 animate-spin" />
-                        <span>+ Обвести светофор</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setIsDrawingROI(true);
-                          setRoiType('traffic_light_pedestrian');
-                          setJumpNotice('🚶 Зажмите ЛКМ и обведите пешеходный светофор');
-                          setTimeout(() => setJumpNotice(null), 3500);
-                        }}
-                        className={`py-1.5 px-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all border ${
-                          isDrawingROI && roiType === 'traffic_light_pedestrian'
-                            ? 'bg-cyan-500 text-slate-950 border-cyan-400 shadow-md shadow-cyan-500/20'
-                            : 'bg-slate-900 hover:bg-slate-800 text-cyan-300 border-cyan-500/30 hover:border-cyan-400'
-                        }`}
-                      >
-                        <span>🚶 + Пеш-светофор</span>
+                        <Crosshair className="w-4 h-4 animate-spin text-amber-400" />
+                        <span>{lang === 'ru' ? '+ Обвести светофор' : '+ Draw Traffic Light'}</span>
                       </button>
                     </div>
 
