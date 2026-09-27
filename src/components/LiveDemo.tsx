@@ -376,12 +376,14 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
       if (playing) {
         currentTimeRef.current = (currentTimeRef.current + dt * speed) % (duration || 60);
 
-        // 1. Video Frame Neural Inference (Throttled to ~5 FPS to eliminate all UI / GPU lag)
-        if (source === 'uploaded' && videoRef.current && !videoRef.current.paused) {
+        // 1. Video Frame Neural Inference (Optimally throttled to ~9 FPS to eliminate frame drops)
+        if (source === 'uploaded' && videoRef.current && videoRef.current.readyState >= 2 && !videoRef.current.paused) {
           const nowMs = performance.now();
-          if (nowMs - lastInferenceTimeRef.current > 200) {
+          if (nowMs - lastInferenceTimeRef.current > 110) {
             lastInferenceTimeRef.current = nowMs;
-            realtimeNeuralVision.processFrame(videoRef.current, conf).catch(() => {});
+            realtimeNeuralVision.processFrame(videoRef.current, conf).then(() => {
+              // Non-blocking
+            }).catch(() => {});
           }
         }
 
@@ -472,16 +474,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
         }
       }
 
-      // 5. Throttled UI State Dispatcher (Runs at ~3 FPS / 350ms to eliminate React re-render lag)
+      // 5. Throttled UI State Dispatcher (Runs at ~12 FPS to prevent React render lag)
       const now = performance.now();
-      if (now - lastUiUpdateRef.current > 350) {
+      if (now - lastUiUpdateRef.current > 85) {
         lastUiUpdateRef.current = now;
         setCurrentTime(currentTimeRef.current);
+        setAutoCycleTimeSec(autoCycleTimerRef.current);
         setTelemetryObjects(realtimeNeuralVision.getTracks());
         setSceneData(realtimeNeuralVision.getSceneAnalysis());
         setDetectedEvents(realtimeNeuralVision.getRawEvents());
         setSmoothedEvents(realtimeNeuralVision.getSmoothedEvents());
         setCollisionLogs(realtimeNeuralVision.getCollisionLog());
+        setRoadElements(realtimeNeuralVision.getRoadElements());
       }
 
       renderCanvas();
@@ -865,14 +869,8 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     const isFlashActive = Math.floor(now / 180) % 2 === 0;
 
     // 1. Draw Background: Video Frame or Synthetic Perspective
-    if (streamSource === 'uploaded') {
-      if (videoRef.current) {
-        try {
-          ctx.drawImage(videoRef.current, 0, 0, width, height);
-        } catch {
-          // Keep current buffer
-        }
-      }
+    if (streamSource === 'uploaded' && videoRef.current && videoRef.current.readyState >= 2) {
+      ctx.drawImage(videoRef.current, 0, 0, width, height);
     } else {
       const skyGrad = ctx.createLinearGradient(0, 0, 0, height * 0.25);
       skyGrad.addColorStop(0, '#020617');
@@ -1126,81 +1124,33 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
       if (streamSource === 'uploaded') {
         const liveTracks = realtimeNeuralVision.getTracks();
         liveTracks.forEach(track => {
-          const rx = Math.round(track.renderX * width);
-          const ry = Math.round(track.renderY * height);
-          const rw = Math.round(track.renderW * width);
-          const rh = Math.round(track.renderH * height);
-          const isPed = track.class === 'person';
+          const rx = track.renderX * width;
+          const ry = track.renderY * height;
+          const rw = track.renderW * width;
+          const rh = track.renderH * height;
 
           const isViolation = track.hasCrossedSolidLine || track.hasTriggeredRedLight;
-          const boxColor = isViolation ? (isFlashActive ? '#ef4444' : '#f59e0b') : (track.color || '#38bdf8');
-
-          // 1. Draw Sleek Cybernetic Corner Brackets (from object_tracking.py)
-          ctx.strokeStyle = boxColor;
-          ctx.lineWidth = isViolation ? 2.5 : 1.5;
+          ctx.strokeStyle = isViolation ? (isFlashActive ? '#ef4444' : '#f59e0b') : (track.color || '#38bdf8');
+          ctx.lineWidth = isViolation ? 3.0 : 2.0;
           ctx.strokeRect(rx, ry, rw, rh);
 
-          // Corner brackets
-          const cornerLen = Math.min(14, Math.max(6, Math.floor(Math.min(rw, rh) * 0.25)));
-          ctx.lineWidth = 2.5;
-          // Top-Left
-          ctx.beginPath();
-          ctx.moveTo(rx, ry + cornerLen);
-          ctx.lineTo(rx, ry);
-          ctx.lineTo(rx + cornerLen, ry);
-          // Top-Right
-          ctx.moveTo(rx + rw - cornerLen, ry);
-          ctx.lineTo(rx + rw, ry);
-          ctx.lineTo(rx + rw, ry + cornerLen);
-          // Bottom-Left
-          ctx.moveTo(rx, ry + rh - cornerLen);
-          ctx.lineTo(rx, ry + rh);
-          ctx.lineTo(rx + cornerLen, ry + rh);
-          // Bottom-Right
-          ctx.moveTo(rx + rw - cornerLen, ry + rh);
-          ctx.lineTo(rx + rw, ry + rh);
-          ctx.lineTo(rx + rw, ry + rh - cornerLen);
-          ctx.stroke();
-
-          // 2. Format Badge Text: Multi-class vehicle & pedestrian display
-          let speedText = '';
-          if (showSpeedRadar) {
-            if (isPed) {
-              if (track.isMoving && track.speedKmh > 0) {
-                speedText = ` | ${track.speedKmh.toFixed(0)} км/ч`;
-              } else {
-                speedText = ' | [СТОИТ]';
-              }
-            } else {
-              if (track.speedKmh <= 0 || !track.isMoving) {
-                speedText = ' | 0 км/ч';
-              } else {
-                speedText = ` | ${track.speedKmh.toFixed(0)} км/ч`;
-              }
-            }
-          }
-          const tagText = isPed ? `🚶 #${track.id} Пешеход` : `${track.labelRu} #${track.id}`;
+          const tagText = `${track.labelRu} #${track.id}`;
+          const speedText = showSpeedRadar ? ` | ${track.speedKmh.toFixed(0)} км/ч` : '';
           const statusText = track.hasCrossedSolidLine ? ' • СПЛОШНАЯ' : track.hasTriggeredRedLight ? ' • КРАСНЫЙ' : '';
-          const fullLabel = `${tagText}${speedText}${statusText}`;
 
-          ctx.font = 'bold 9px JetBrains Mono, monospace';
-          const textMetrics = ctx.measureText(fullLabel);
-          const badgeWidth = Math.max(rw, textMetrics.width + 10);
-          const badgeHeight = 16;
-          const badgeY = Math.max(badgeHeight, ry - 4);
-
-          ctx.fillStyle = isViolation ? '#ef4444' : 'rgba(15, 23, 42, 0.92)';
-          ctx.fillRect(rx, badgeY - badgeHeight, badgeWidth, badgeHeight);
-          ctx.strokeStyle = isViolation ? '#ffffff' : boxColor;
+          ctx.fillStyle = isViolation ? '#ef4444' : 'rgba(15, 23, 42, 0.90)';
+          ctx.fillRect(rx, ry - 20, Math.max(rw, 120), 18);
+          ctx.strokeStyle = isViolation ? '#ffffff' : (track.color || '#38bdf8');
           ctx.lineWidth = 1;
-          ctx.strokeRect(rx, badgeY - badgeHeight, badgeWidth, badgeHeight);
+          ctx.strokeRect(rx, ry - 20, Math.max(rw, 120), 18);
 
           ctx.fillStyle = '#ffffff';
-          ctx.fillText(fullLabel, rx + 4, badgeY - 4);
+          ctx.font = 'bold 9px JetBrains Mono, monospace';
+          ctx.fillText(`${tagText}${speedText}${statusText}`, rx + 4, ry - 7);
 
-          if (showTrajectories && track.trail && track.trail.length > 1 && !isPed) {
-            ctx.strokeStyle = boxColor;
-            ctx.lineWidth = 1.8;
+          if (showTrajectories && track.trail && track.trail.length > 1) {
+            ctx.strokeStyle = track.color || '#38bdf8';
+            ctx.lineWidth = 2.0;
             ctx.beginPath();
             track.trail.forEach((pt, i) => {
               const tx = pt.x * width;
@@ -1296,7 +1246,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     ctx.font = 'bold 10px JetBrains Mono, monospace';
     ctx.fillText(`⚡ VISIONFORCE: ${roadElements.length} ДОРОЖНЫХ ОБЪЕКТОВ АКТИВНО`, 20, 29);
 
-  }, [streamSource, showBoundingBoxes, showTrajectories, showSpeedRadar, showInfrastructureOverlay, roadElements, selectedElementId, hoveredElementId, trafficSignalPhase]);
+  }, [streamSource, showBoundingBoxes, showTrajectories, showSpeedRadar, showInfrastructureOverlay, roadElements, selectedElementId, hoveredElementId, trafficSignalPhase, autoCycleTimeSec, violationsList]);
 
   const selectedElement = useMemo(() => {
     return roadElements.find(e => e.id === selectedElementId) || null;
@@ -1439,14 +1389,14 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 🔀 Т-образный (Стрелка)
               </button>
               <button
-                onClick={() => handleApplyPreset('highway_radar', 'YOLOv10 + DeepSORT Радар Скорости (Шоссе)')}
+                onClick={() => handleApplyPreset('highway_radar', 'Скоростная трасса (Радар 70 км/ч)')}
                 className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
                   activePreset === 'highway_radar'
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                🛣️ YOLOv10 Радар Шоссе (DeepSORT)
+                🛣️ Трасса (Радар 70)
               </button>
               <button
                 onClick={() => handleApplyPreset('pedestrian_focus', 'Пешеходная зона / Зебра (30 км/ч)')}
@@ -1713,17 +1663,13 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   autoPlay
                   onPlay={() => setIsPlaying(true)}
                   onPause={() => setIsPlaying(false)}
-                  onSeeking={() => renderCanvas()}
                   onSeeked={() => renderCanvas()}
-                  onCanPlay={() => renderCanvas()}
-                  onLoadedData={() => renderCanvas()}
                   onTimeUpdate={(e) => {
                     const t = (e.target as HTMLVideoElement).currentTime;
                     currentTimeRef.current = t;
-                    renderCanvas();
                   }}
                   onLoadedMetadata={(e) => setDuration((e.target as HTMLVideoElement).duration || 60)}
-                  className="w-full h-full object-contain pointer-events-none opacity-0 absolute"
+                  className="w-full h-full object-contain pointer-events-none"
                 />
               )}
 

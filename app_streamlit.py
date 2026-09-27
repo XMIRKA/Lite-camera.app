@@ -71,7 +71,7 @@ st.sidebar.title("⚙️ Параметры ИИ Пайплайна")
 # Model Selection
 model_choice = st.sidebar.selectbox(
     "Модель детекции",
-    ["yolov10n.pt (YOLOv10 - Скоростной радар)", "yolo11n.pt (YOLOv11 - Новая)", "yolov8n.pt (Nano - Быстрая)"],
+    ["yolov8n.pt (Nano - Быстрая)", "yolov8s.pt (Small - Сбалансированная)", "yolo11n.pt (YOLOv11 - Новая)"],
     index=0
 )
 model_name = model_choice.split()[0]
@@ -94,14 +94,12 @@ tab_video, tab_economics = st.tabs(["🎥 Анализ видео и Click-to-Ju
 
 with tab_video:
     # Source Selection
-    video_source = st.radio("Источник видео:", ["Тестовый образец перекрестка", "Шоссе YOLOv10 Highway", "Загрузить свое видео (.mp4)"], horizontal=True)
+    video_source = st.radio("Источник видео:", ["Тестовый образец перекрестка", "Загрузить свое видео (.mp4)"], horizontal=True)
 
     uploaded_file = None
     video_path = "public/sample_001_morning_crossroad.mp4"
 
-    if video_source == "Шоссе YOLOv10 Highway":
-        video_path = "vehicle-speed-estimation-main/content/highway.mp4"
-    elif video_source == "Загрузить свое видео (.mp4)":
+    if video_source == "Загрузить свое видео (.mp4)":
         uploaded_file = st.file_uploader("Загрузите видеофайл", type=["mp4", "avi", "mov"])
         if uploaded_file is not None:
             tfile = tempfile.NamedTemporaryFile(delete=False)

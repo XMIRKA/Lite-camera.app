@@ -32,7 +32,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>VisionForce • YOLOv10 & DeepSORT Traffic Surveillance</span>
+            <span>VisionForce AI • Autonomous Traffic Surveillance</span>
           </div>
           <div>
             Team: Alisherov Mirkamol (Lead) • Normatov Bekzod • Muzaffar Solixojaev
