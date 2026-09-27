@@ -92,8 +92,8 @@ def main(_argv):
     FRAME_WIDTH=30
     FRAME_HEIGHT=100
 
-    SOURCE_POLYGONE = np.array([[18, 550], [1852, 608],[1335, 370], [534, 343]], dtype=np.float32)
-    BIRD_EYE_VIEW = np.array([[0, 0], [FRAME_WIDTH, 0], [FRAME_WIDTH, FRAME_HEIGHT],[0, FRAME_HEIGHT]], dtype=np.float32)
+    SOURCE_POLYGONE = np.array([[534, 343], [1335, 370], [1852, 608], [18, 550]], dtype=np.float32)
+    BIRD_EYE_VIEW = np.array([[0, 0], [FRAME_WIDTH, 0], [FRAME_WIDTH, FRAME_HEIGHT], [0, FRAME_HEIGHT]], dtype=np.float32)
 
     M = cv2.getPerspectiveTransform(SOURCE_POLYGONE, BIRD_EYE_VIEW)
 
@@ -153,12 +153,18 @@ def main(_argv):
                 confidence = box.conf[0]     
                 label = box.cls[0]  
 
-                # Filter out weak detections by confidence threshold and class_id
+                # Filter out weak detections, non-vehicles (no pedestrians!), and oversized boxes
+                w = x2 - x1
+                h = y2 - y1
+                if w > frame_width * 0.45 or h > frame_height * 0.45 or w < 12 or h < 12:
+                    continue
+
                 if opt.class_id is None:
-                    if confidence < opt.conf:
+                    # Transport classes: bicycle (1), car (2), motorbike (3), bus (5), truck (7)
+                    if int(label) not in [1, 2, 3, 5, 7] or confidence < opt.conf:
                         continue
                 else:
-                    if class_id != opt.class_id or confidence < opt.conf:
+                    if int(label) != opt.class_id or confidence < opt.conf:
                         continue            
                     
                 if polygon_mask[(y1 + y2) // 2, (x1 + x2) // 2] == 255:
@@ -169,37 +175,50 @@ def main(_argv):
                 continue
             track_id = track.track_id    
             ltrb = track.to_ltrb()
-            class_id = track.get_det_class()
+            class_id = track.get_det_class() or 2
             x1, y1, x2, y2 = map(int, ltrb)
             if polygon_mask[(y1+y2)//2,(x1+x2)//2] == 0:
                 tracks.remove(track)
-            color = colors[class_id]
+            color = colors[class_id % len(colors)]
             B, G, R = map(int, color)
-            text = f"{track_id} - {class_names[class_id]}"
+            text = f"#{track_id} {class_names[class_id] if class_id < len(class_names) else 'vehicle'}"
             center_pt = np.array([[(x1+x2)//2, (y1+y2)//2]], dtype=np.float32)
             transformed_pt = cv2.perspectiveTransform(center_pt[None, :, :], M)
+            
+            # Speed estimation with stationary deadzone
             if track_id in prev_positions:
                 prev_position = prev_positions[track_id]
                 distance = calculate_distance(prev_position, transformed_pt[0][0])
-                speed = calculate_speed(distance, fps)
-                if track_id in speed_accumulator:
-                    speed_accumulator[track_id].append(speed)
-                    if len(speed_accumulator[track_id]) > 100:
-                        speed_accumulator[track_id].pop(0)
+                if distance < 0.35:
+                    # Vehicle is stationary -> 0 km/h (eliminating 35 km/h jitter)
+                    speed_accumulator[track_id] = [0.0]
                 else:
-                    speed_accumulator[track_id] = []
-                    speed_accumulator[track_id].append(speed)
+                    speed = calculate_speed(distance, fps)
+                    if 4.0 <= speed <= 180.0:
+                        if track_id not in speed_accumulator:
+                            speed_accumulator[track_id] = []
+                        speed_accumulator[track_id].append(speed)
+                        if len(speed_accumulator[track_id]) > 15:
+                            speed_accumulator[track_id].pop(0)
+
             prev_positions[track_id] = transformed_pt[0][0]
-            # Draw bounding box and text
-            frame = draw_corner_rect(frame, (x1, y1, x2 - x1, y2 - y1), line_length=15, line_thickness=3, rect_thickness=1, rect_color=(B, G, R), line_color=(R, G, B))
-            #cv2.rectangle(frame, (x1, y1), (x2, y2), (B, G, R), 2)
-            cv2.rectangle(frame, (x1 - 1, y1 - 20), (x1 + len(text) * 10, y1), (B, G, R), -1)
-            cv2.putText(frame, text, (x1 + 5, y1 - 7), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
-            if track_id in speed_accumulator :
+            
+            # Draw compact cybernetic bounding box and text
+            w = x2 - x1
+            h = y2 - y1
+            frame = draw_corner_rect(frame, (x1, y1, w, h), line_length=min(16, max(6, w // 4)), line_thickness=2, rect_thickness=1, rect_color=(B, G, R), line_color=(R, G, B))
+            (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+            cv2.rectangle(frame, (x1 - 1, max(0, y1 - th - 8)), (x1 + tw + 8, y1), (B, G, R), -1)
+            cv2.putText(frame, text, (x1 + 4, max(12, y1 - 4)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1)
+            
+            if track_id in speed_accumulator and len(speed_accumulator[track_id]) >= 1:
                 avg_speed = sum(speed_accumulator[track_id]) / len(speed_accumulator[track_id])
-                #print(avg_speed)
-                cv2.rectangle(frame, (x1 - 1, y1-40 ), (x1 + len(f"Speed: {avg_speed:.0f} km/h") * 10, y1-20), (0, 0, 255), -1)
-                cv2.putText(frame, f"Speed: {avg_speed:.0f} km/h", (x1, y1 - 25), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
+                if avg_speed < 3.0:
+                    avg_speed = 0.0
+                speed_str = f"Speed: {avg_speed:.0f} km/h" if avg_speed > 0 else "0 km/h (Stopped)"
+                (stw, sth), _ = cv2.getTextSize(speed_str, cv2.FONT_HERSHEY_SIMPLEX, 0.42, 1)
+                cv2.rectangle(frame, (x1 - 1, max(0, y1 - th - sth - 16)), (x1 + stw + 8, max(0, y1 - th - 8)), (0, 0, 255) if avg_speed > 80 else (0, 180, 50), -1)
+                cv2.putText(frame, speed_str, (x1 + 4, max(12, y1 - th - 12)), cv2.FONT_HERSHEY_SIMPLEX, 0.42, (255, 255, 255), 1)
             # Apply Gaussian Blur
             if opt.blur_id is not None and class_id == opt.blur_id:
                 print("true")

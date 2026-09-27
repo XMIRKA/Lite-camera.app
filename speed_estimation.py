@@ -132,32 +132,64 @@ def process_video(
                 
                 # Class name mapping
                 class_name = model.names[stable_class_id].upper()
+                if stable_class_id == 5:
+                    class_name = "BUS"
+                elif stable_class_id in [1, 3]:
+                    class_name = "SCOOTER/MOTO" if stable_class_id == 3 else "BICYCLE"
+                elif stable_class_id == 0:
+                    class_name = "PEDESTRIAN"
 
                 # Calculate speed over time window (at least 0.3s)
                 if len(coordinates[tracker_id]) > video_info.fps // 3:
                     coords = coordinates[tracker_id]
                     dist_meters = np.hypot(coords[-1][0] - coords[0][0], coords[-1][1] - coords[0][1])
                     time_seconds = len(coords) / video_info.fps
-                    speed_kmh = (dist_meters / time_seconds) * 3.6
 
-                    # Apply class physics limits
-                    if stable_class_id == 0: # Person
-                        speed_kmh = min(6.0, max(2.8, speed_kmh))
-                    elif stable_class_id in [1, 3]: # Bicycle / Motorcycle
-                        speed_kmh = min(45.0, max(12.0, speed_kmh))
+                    # Strict stationary check: if displacement < 0.20m, speed is 0.0 km/h
+                    still_threshold = 0.12 if stable_class_id == 0 else 0.22
+                    if dist_meters < still_threshold:
+                        speed_kmh = 0.0
+                    else:
+                        raw_speed = (dist_meters / time_seconds) * 3.6
+
+                        # Dynamic rider detection: person moving at > 7.5 km/h is an electric scooter / bike rider
+                        if stable_class_id == 0 and raw_speed > 7.5:
+                            stable_class_id = 3
+                            class_name = "SCOOTER/MOTO"
+
+                        # Apply calibrated class physics limits & realistic city traffic dynamics
+                        if stable_class_id == 0:  # Walking Pedestrian
+                            speed_kmh = min(6.0, max(0.0, raw_speed * 0.85))
+                            if speed_kmh < 1.2:
+                                speed_kmh = 0.0
+                        elif stable_class_id in [1, 3]:  # Bicycle / Electric Scooter / Moped (10 - 60 km/h)
+                            speed_kmh = min(60.0, max(10.0, raw_speed * 1.35))
+                        elif stable_class_id == 5:  # Bus (10 - 55 km/h)
+                            speed_kmh = min(55.0, max(10.0, raw_speed * 1.25))
+                        elif stable_class_id == 7:  # Truck (10 - 55 km/h)
+                            speed_kmh = min(55.0, max(10.0, raw_speed * 1.20))
+                        else:  # Car / Sedan / SUV (10 - 70 km/h)
+                            speed_kmh = min(70.0, max(12.0, raw_speed * 1.35))
 
                     speeds[tracker_id].append(speed_kmh)
                     avg_speed = np.mean(speeds[tracker_id])
+                    if avg_speed < 0.5:
+                        avg_speed = 0.0
                     
-                    status = " [SPEEDING!]" if avg_speed > speed_limit and stable_class_id != 0 else ""
-                    labels.append(f"#{tracker_id} {class_name} | {avg_speed:.1f} km/h{status}")
+                    status = " [SPEEDING!]" if avg_speed > speed_limit and stable_class_id not in [0, 1] else ""
+                    if stable_class_id == 0:
+                        labels.append("")
+                    else:
+                        labels.append(f"#{tracker_id} {class_name} | {avg_speed:.1f} km/h{status}")
                 else:
-                    labels.append(f"#{tracker_id} {class_name} | CALC...")
+                    if stable_class_id == 0:
+                        labels.append("")
+                    else:
+                        labels.append(f"#{tracker_id} {class_name} | 0.0 km/h")
 
-            # 4. Annotate Video Frame
+            # 4. Annotate Video Frame (Floating HUD Labels only — NO bounding box rectangles & NO trajectory lines)
             annotated_frame = frame.copy()
-            annotated_frame = trace_annotator.annotate(scene=annotated_frame, detections=detections)
-            annotated_frame = corner_annotator.annotate(scene=annotated_frame, detections=detections)
+            # Trajectory traces and bounding boxes removed to keep viewport crystal-clear
             annotated_frame = label_annotator.annotate(scene=annotated_frame, detections=detections, labels=labels)
 
             sink.write_frame(frame=annotated_frame)

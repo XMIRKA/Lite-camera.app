@@ -43,9 +43,10 @@ export function projectImageToGround(
   const v_eff = Math.max(calib.vanishingPointY + 0.02, Math.min(0.99, v));
   const normDepth = (v_eff - calib.vanishingPointY) / (1.0 - calib.vanishingPointY);
   
-  // Non-linear Inverse Perspective Mapping (IPM) to real road ground plane (meters)
-  const gy = (calib.cameraHeightMeters / Math.tan(((calib.cameraPitchDeg + 2.0) * Math.PI) / 180 + normDepth * 0.40)) + (1.0 - normDepth) * (calib.roadLengthMeters * 0.75);
-  const roadSpread = calib.laneWidthMeters * (gy / 12.0 + 0.8);
+  // High-fidelity non-linear Inverse Perspective Mapping (IPM) to real road ground plane (meters)
+  // v near horizon (v=0.22) corresponds to ~70m distance, v at bottom of screen corresponds to ~5m distance
+  const gy = (calib.cameraHeightMeters / Math.tan(((calib.cameraPitchDeg + 2.0) * Math.PI) / 180 + Math.pow(normDepth, 1.25) * 0.46)) + (1.0 - normDepth) * (calib.roadLengthMeters * 0.90);
+  const roadSpread = calib.laneWidthMeters * (gy / 9.5 + 0.95);
   const gx = (u - 0.5) * roadSpread;
   
   return { gx, gy };
@@ -84,6 +85,8 @@ export interface RoadInfrastructureElement {
   manualOverride: 'AUTO' | 'RED' | 'YELLOW' | 'GREEN';
   confidence: number;
   colorHex: string;
+  isAccent?: boolean; // Highlighted / User-drawn ROI focus
+  lampValues?: { red: number; yellow: number; green: number };
   // Functional Thresholds
   speedLimitKmh?: number;
   maxStopDurationSec?: number;
@@ -135,6 +138,8 @@ export interface LiveDetectedObject {
   stoppedDurationSec: number;
   hasTriggeredStoppedVehicle?: boolean;
   hasCrossedSolidLine?: boolean;
+  persistentClass?: string;
+  riderConfidence?: number;
   hasTriggeredRedLight?: boolean;
   hasTriggeredStopLine?: boolean;
   hasTriggeredJaywalking?: boolean;
@@ -386,11 +391,11 @@ class RealtimeNeuralVisionEngine {
   public isEnforcementActive: boolean = true;
 
   private calibration: CameraCalibrationParams = {
-    roadLengthMeters: 45.0,
+    roadLengthMeters: 68.0,
     laneWidthMeters: 3.75,
-    cameraHeightMeters: 6.5,
-    cameraPitchDeg: 22.0,
-    vanishingPointY: 0.22,
+    cameraHeightMeters: 7.0,
+    cameraPitchDeg: 23.0,
+    vanishingPointY: 0.20,
   };
 
   constructor() {
@@ -412,6 +417,17 @@ class RealtimeNeuralVisionEngine {
     this.isEnforcementActive = active;
   }
 
+  public handleSeekReset(): void {
+    const now = performance.now();
+    for (const track of this.activeTracks.values()) {
+      track.history = [];
+      track.lastSeen = now;
+      track.lastVideoTime = 0;
+      track.vx = 0;
+      track.vy = 0;
+    }
+  }
+
   // ══════════════════════════════════════════════════════════════════════════
   // ROAD ELEMENTS UNIFIED CRUD API
   // ══════════════════════════════════════════════════════════════════════════
@@ -425,6 +441,39 @@ class RealtimeNeuralVisionEngine {
 
   public clearRoadElements(): void {
     this.roadElements = [];
+  }
+
+  public addCustomDrawnTrafficLight(
+    bbox: { x: number; y: number; w: number; h: number },
+    direction: 'MAIN_DIRECTION' | 'CROSS_DIRECTION' | 'LEFT_TURN_PHASE' | 'PEDESTRIAN_PHASE' = 'MAIN_DIRECTION',
+    isPedestrian: boolean = false
+  ): RoadInfrastructureElement {
+    const id = `sig_accent_${Date.now().toString().slice(-4)}`;
+    const type: RoadElementType = isPedestrian ? 'traffic_light_pedestrian' : 'traffic_light_auto';
+    const name = `Акцент-светофор #${this.roadElements.filter(e => e.type === type).length + 1} (Выделен)`;
+
+    const newElem: RoadInfrastructureElement = {
+      id,
+      type,
+      name,
+      x: Math.max(0.01, Math.min(0.95, parseFloat(bbox.x.toFixed(3)))),
+      y: Math.max(0.01, Math.min(0.95, parseFloat(bbox.y.toFixed(3)))),
+      w: Math.max(0.02, Math.min(0.35, parseFloat(bbox.w.toFixed(3)))),
+      h: Math.max(0.03, Math.min(0.45, parseFloat(bbox.h.toFixed(3)))),
+      direction,
+      state: 'GREEN',
+      manualOverride: 'AUTO',
+      confidence: 0.98,
+      colorHex: '#10b981',
+      isAccent: true,
+      lampValues: { red: 10, yellow: 5, green: 70 },
+      activeViolationsCount: 0,
+      enabled: true
+    };
+
+    // Give this newly drawn traffic light top priority
+    this.roadElements.unshift(newElem);
+    return newElem;
   }
 
   public addRoadElement(type: RoadElementType, x: number = 0.5, y: number = 0.5): RoadInfrastructureElement {
@@ -1020,11 +1069,13 @@ class RealtimeNeuralVisionEngine {
 
   public setPaused(paused: boolean): void {
     this.isPaused = paused;
-    if (!paused) {
-      const now = performance.now();
-      for (const track of this.activeTracks.values()) {
-        track.lastSeen = now;
-      }
+    const now = performance.now();
+    for (const track of this.activeTracks.values()) {
+      track.lastSeen = now;
+      track.renderX = track.targetX;
+      track.renderY = track.targetY;
+      track.renderW = track.targetW;
+      track.renderH = track.targetH;
     }
   }
 
@@ -1066,8 +1117,13 @@ class RealtimeNeuralVisionEngine {
   }
 
   public updateInterpolation(): void {
-    const smoothFactor = 0.35;
+    if (this.isPaused) return;
+    const smoothFactor = 0.80;
     for (const track of this.activeTracks.values()) {
+      if (track.missedFrames > 0 && track.isMoving) {
+        track.targetX += track.vx * 0.016;
+        track.targetY += track.vy * 0.016;
+      }
       track.renderX += (track.targetX - track.renderX) * smoothFactor;
       track.renderY += (track.targetY - track.renderY) * smoothFactor;
       track.renderW += (track.targetW - track.renderW) * smoothFactor;
@@ -1098,13 +1154,13 @@ class RealtimeNeuralVisionEngine {
       const effConf = Math.max(0.24, Math.min(0.85, confThreshold));
       const rawPredictions = await this.model.detect(this.inferCanvas, 20, effConf);
 
-      // 1. Dynamic Optical Photometry on ALL Placed Traffic Light Infrastructure Elements (Throttled to 400ms)
-      if (this.inferCtx && (now - this.lastPhotometryTime > 400)) {
+      // 1. Dynamic Optical Photometry on ALL Traffic Lights (Auto, Pedestrian & Accented Drawn ROIs)
+      if (this.inferCtx && (now - this.lastPhotometryTime > 280)) {
         this.lastPhotometryTime = now;
         this.roadElements.forEach(elem => {
           if (!elem.enabled) return;
 
-          if (elem.type === 'traffic_light_auto') {
+          if (elem.type === 'traffic_light_auto' || (elem.isAccent && elem.type !== 'traffic_light_pedestrian')) {
             const chroma = analyzeSingleTrafficLight(this.inferCtx!, {
               x: elem.x,
               y: elem.y,
@@ -1112,11 +1168,12 @@ class RealtimeNeuralVisionEngine {
               h: elem.h
             }, 480, 270);
 
-            const stable = getStableSignalState(parseInt(elem.id.replace(/\D/g, '') || '1', 10), chroma.state, 8);
+            const stable = getStableSignalState(parseInt(elem.id.replace(/\D/g, '') || '1', 10), chroma.state, 6);
             const effectiveState = elem.manualOverride !== 'AUTO' ? elem.manualOverride : stable.state;
             elem.state = effectiveState;
             elem.colorHex = effectiveState === 'RED' ? '#ef4444' : effectiveState === 'YELLOW' ? '#f59e0b' : '#10b981';
             elem.confidence = chroma.confidence;
+            elem.lampValues = chroma.lampValues;
           } else if (elem.type === 'traffic_light_pedestrian') {
             const pedChroma = analyzePedestrianTrafficLight(this.inferCtx!, {
               x: elem.x,
@@ -1129,12 +1186,17 @@ class RealtimeNeuralVisionEngine {
             elem.state = effectiveState;
             elem.colorHex = effectiveState === 'RED' ? '#ef4444' : '#10b981';
             elem.confidence = pedChroma.confidence;
+            elem.lampValues = {
+              red: effectiveState === 'RED' ? 85 : 15,
+              yellow: 0,
+              green: effectiveState === 'GREEN' ? 85 : 15
+            };
           }
         });
 
         // Evaluate intersection interlocking across automobile signals
         const autoSignals: IndividualTrafficLight[] = this.roadElements
-          .filter(e => e.type === 'traffic_light_auto' && e.enabled)
+          .filter(e => (e.type === 'traffic_light_auto' || e.isAccent) && e.enabled)
           .map((e, idx) => ({
             id: idx + 1,
             label: e.name,
@@ -1151,7 +1213,7 @@ class RealtimeNeuralVisionEngine {
             lastUpdatedTime: now,
             isOccludedOrInferred: false,
             manualOverride: e.manualOverride,
-            lampValues: { red: 50, yellow: 20, green: 50 }
+            lampValues: e.lampValues || { red: 50, yellow: 20, green: 50 }
           }));
 
         if (autoSignals.length > 0) {
@@ -1161,12 +1223,25 @@ class RealtimeNeuralVisionEngine {
         }
       }
 
-      // 2. Class Filtering & Non-Maximum Suppression (NMS)
-      const trafficClasses = new Set(['car', 'truck', 'bus', 'motorcycle', 'bicycle', 'person']);
+      // 2. Strict Class & Size Filtering (Eliminates half-screen boxes, random objects, and flying noise)
+      const allowedTrafficClasses = new Set(['car', 'truck', 'bus', 'motorcycle', 'bicycle', 'person']);
       const filtered = rawPredictions.filter(p => {
-        if (!trafficClasses.has(p.class) || p.score < effConf) return false;
-        const [x, y, w, h] = p.bbox;
-        if (w < 10 || h < 10 || w > 470 || h > 265) return false;
+        // Discard unknown or non-traffic objects
+        if (!allowedTrafficClasses.has(p.class) || p.score < effConf) return false;
+        const [px, py, pw, ph] = p.bbox;
+        const nw = pw / 480;
+        const nh = ph / 270;
+
+        // Discard giant boxes taking half screen / invalid huge detections
+        if (nw > 0.45 || nh > 0.45 || (nw * nh > 0.16)) return false;
+        // Discard micro noise
+        if (pw < 12 || ph < 12 || nw < 0.018 || nh < 0.025) return false;
+
+        // Aspect ratio sanity check
+        const aspect = nw / Math.max(0.01, nh);
+        if (p.class === 'person' && (aspect > 1.1 || nh < 0.03)) return false;
+        if ((p.class === 'car' || p.class === 'bus' || p.class === 'truck') && (aspect < 0.25 || aspect > 4.2)) return false;
+
         return true;
       });
 
@@ -1187,7 +1262,7 @@ class RealtimeNeuralVisionEngine {
           const interArea = interW * interH;
           const unionArea = cw * ch + sw * sh - interArea;
           const iou = unionArea > 0 ? interArea / unionArea : 0;
-          if (iou > 0.45) {
+          if (iou > 0.42) {
             isDup = true;
             break;
           }
@@ -1197,9 +1272,60 @@ class RealtimeNeuralVisionEngine {
         }
       }
 
-      // 3. Fused Detections Building
+      // 3. Fused Detections Building with Distinct Micro-Mobility & Vehicle Profiles
       const fusedDetections: RawFusedDetection[] = [];
-      validDetections.forEach((det) => {
+      const usedCandIndices = new Set<number>();
+
+      // Step 3A: Fuse overlapping Person + Bicycle / Motorcycle detections (Rider on Scooter/Bike)
+      for (let i = 0; i < validDetections.length; i++) {
+        if (usedCandIndices.has(i)) continue;
+        const candA = validDetections[i];
+
+        if (candA.class === 'person') {
+          // Look for overlapping bicycle or motorcycle
+          let pairedIndex = -1;
+          for (let j = 0; j < validDetections.length; j++) {
+            if (i === j || usedCandIndices.has(j)) continue;
+            const candB = validDetections[j];
+            if (candB.class === 'bicycle' || candB.class === 'motorcycle') {
+              const xA = Math.max(candA.bbox[0], candB.bbox[0]);
+              const yA = Math.max(candA.bbox[1], candB.bbox[1]);
+              const xB = Math.min(candA.bbox[0] + candA.bbox[2], candB.bbox[0] + candB.bbox[2]);
+              const yB = Math.min(candA.bbox[1] + candA.bbox[3], candB.bbox[1] + candB.bbox[3]);
+              const interArea = Math.max(0, xB - xA) * Math.max(0, yB - yA);
+              const minArea = Math.min(candA.bbox[2] * candA.bbox[3], candB.bbox[2] * candB.bbox[3]);
+              if (minArea > 0 && (interArea / minArea > 0.15)) {
+                pairedIndex = j;
+                break;
+              }
+            }
+          }
+
+          if (pairedIndex !== -1) {
+            const candB = validDetections[pairedIndex];
+            usedCandIndices.add(i);
+            usedCandIndices.add(pairedIndex);
+            const unionX = Math.min(candA.bbox[0], candB.bbox[0]);
+            const unionY = Math.min(candA.bbox[1], candB.bbox[1]);
+            const unionW = Math.max(candA.bbox[0] + candA.bbox[2], candB.bbox[0] + candB.bbox[2]) - unionX;
+            const unionH = Math.max(candA.bbox[1] + candA.bbox[3], candB.bbox[1] + candB.bbox[3]) - unionY;
+            const targetClass = candB.class === 'bicycle' ? 'bicycle' : 'motorcycle';
+            fusedDetections.push({
+              bbox: [unionX / 480, unionY / 270, unionW / 480, unionH / 270],
+              class: targetClass,
+              labelRu: targetClass === 'bicycle' ? '🚴 ВЕЛОСИПЕД' : '🛵 СКУТЕР / САМОКАТ',
+              color: targetClass === 'bicycle' ? '#10b981' : '#06b6d4',
+              score: Math.max(candA.score, candB.score)
+            });
+            continue;
+          }
+        }
+      }
+
+      // Step 3B: Process remaining standalone detections
+      for (let i = 0; i < validDetections.length; i++) {
+        if (usedCandIndices.has(i)) continue;
+        const det = validDetections[i];
         const nx = det.bbox[0] / 480;
         const ny = det.bbox[1] / 270;
         const nw = det.bbox[2] / 480;
@@ -1207,32 +1333,32 @@ class RealtimeNeuralVisionEngine {
         const aspect = nw / Math.max(0.01, nh);
 
         let detClass = det.class;
-        let labelRu = '🚗 АВТОМОБИЛЬ';
+        let labelRu = '🚗 АВТО';
         let color = '#38bdf8';
 
         if (det.class === 'person') {
-          if (aspect > 0.58 && nw > 0.035 && nh > 0.07) {
-            detClass = 'motorcycle';
-            labelRu = '🛵 КУРЬЕР / СКУТЕР';
-            color = '#06b6d4';
-          } else {
-            labelRu = '🚶 ПЕШЕХОД';
-            color = '#10b981';
-          }
+          detClass = 'person';
+          labelRu = '🚶 ПЕШЕХОД';
+          color = '#10b981';
         } else if (det.class === 'bicycle') {
-          labelRu = '🚴 ВЕЛОСИПЕДИСТ';
+          detClass = 'bicycle';
+          labelRu = '🚴 ВЕЛОСИПЕД';
           color = '#10b981';
         } else if (det.class === 'motorcycle') {
-          labelRu = '🛵 КУРЬЕР / СКУТЕР';
+          detClass = 'motorcycle';
+          labelRu = '🛵 СКУТЕР / САМОКАТ';
           color = '#06b6d4';
         } else if (det.class === 'bus') {
+          detClass = 'bus';
           labelRu = '🚌 АВТОБУС';
           color = '#f59e0b';
         } else if (det.class === 'truck') {
+          detClass = 'truck';
           labelRu = '🚛 ГРУЗОВИК';
           color = '#f97316';
         } else {
-          labelRu = '🚗 АВТОМОБИЛЬ';
+          detClass = 'car';
+          labelRu = '🚗 АВТО';
           color = '#38bdf8';
         }
 
@@ -1243,9 +1369,9 @@ class RealtimeNeuralVisionEngine {
           color,
           score: det.score
         });
-      });
+      }
 
-      // 4. ROBUST ANTI-TARGET-SWITCHING TRACK ASSOCIATION (ByteTrack + Kalman Velocity Gating)
+      // 4. ROBUST TRACK ASSOCIATION & ANTI-FLICKER
       const matchedTrackIds = new Set<number>();
       const matchedDetIndices = new Set<number>();
 
@@ -1301,14 +1427,11 @@ class RealtimeNeuralVisionEngine {
             const centerDist = Math.hypot(detCenterX - predCenterX, detCenterY - predCenterY);
             const normDist = centerDist / Math.max(0.04, trackDiag);
 
-            const trackAspect = predW / Math.max(0.01, predH);
-            const detAspect = nw / Math.max(0.01, nh);
-            const aspectDiff = Math.abs(Math.log(Math.max(0.1, detAspect / trackAspect)));
+            // Reject erratic long-distance teleports
+            if (centerDist > 0.14 && iou < 0.05) return;
 
-            if (iou < 0.04 && normDist > 1.4 && centerDist > 0.12) return;
-
-            const cost = 0.45 * (1.0 - iou) + 0.35 * Math.min(1.0, normDist) + 0.20 * Math.min(1.0, aspectDiff) + classPenalty;
-            if (cost < 0.85) {
+            const cost = 0.45 * (1.0 - iou) + 0.35 * Math.min(1.0, normDist) + classPenalty;
+            if (cost < 0.82) {
               matches.push({ trackId: id, detIdx, cost });
             }
           });
@@ -1333,51 +1456,62 @@ class RealtimeNeuralVisionEngine {
             dt = Math.min(0.20, Math.max(0.03, (now - track.lastSeen) / 1000));
           }
 
+          const screenDist = Math.hypot(nx - track.x, ny - track.y);
           const newVx = (nx - track.targetX) / dt;
           const newVy = (ny - track.targetY) / dt;
-          track.vx = track.vx * 0.55 + newVx * 0.45;
-          track.vy = track.vy * 0.55 + newVy * 0.45;
+          track.vx = track.vx * 0.50 + newVx * 0.50;
+          track.vy = track.vy * 0.50 + newVy * 0.50;
 
-          // Double-EMA coordinates smoothing
-          track.targetX = track.targetX * 0.70 + nx * 0.30;
-          track.targetY = track.targetY * 0.70 + ny * 0.30;
-          track.targetW = track.targetW * 0.75 + nw * 0.25;
-          track.targetH = track.targetH * 0.75 + nh * 0.25;
+          // Zero-lag immediate target tracking with responsive visual lock
+          track.targetX = nx;
+          track.targetY = ny;
+          track.targetW = nw;
+          track.targetH = nh;
+          if (Math.hypot(track.renderX - nx, track.renderY - ny) > 0.08) {
+            track.renderX = nx;
+            track.renderY = ny;
+            track.renderW = nw;
+            track.renderH = nh;
+          }
 
           if (!track.classHistory) track.classHistory = [];
           track.classHistory.push(det.class);
           if (track.classHistory.length > 15) track.classHistory.shift();
 
-          const voteCounts: Record<string, number> = {};
-          track.classHistory.forEach(cls => { voteCounts[cls] = (voteCounts[cls] || 0) + 1; });
-          let stableClass = det.class;
-          let maxCount = -1;
-          Object.entries(voteCounts).forEach(([cls, count]) => {
-            if (count > maxCount) {
-              maxCount = count;
-              stableClass = cls;
-            }
-          });
-
+          // ══════════════════════════════════════════════════════════════════
+          // FLICKER-FREE CLASS LATCHING & SCOOTER RIDER PERSISTENCE
+          // ══════════════════════════════════════════════════════════════════
+          let stableClass = track.persistentClass || det.class;
           let stableLabelRu = det.labelRu;
           let stableColor = det.color;
-          if (stableClass === 'person') {
+
+          if (!track.persistentClass) {
+            track.persistentClass = det.class;
+          }
+
+          if (track.persistentClass === 'person') {
+            stableClass = 'person';
             stableLabelRu = '🚶 ПЕШЕХОД';
             stableColor = '#10b981';
-          } else if (stableClass === 'motorcycle') {
-            stableLabelRu = '🛵 КУРЬЕР / СКУТЕР';
+          } else if (track.persistentClass === 'motorcycle') {
+            stableClass = 'motorcycle';
+            stableLabelRu = '🛵 СКУТЕР / САМОКАТ';
             stableColor = '#06b6d4';
-          } else if (stableClass === 'bicycle') {
-            stableLabelRu = '🚴 ВЕЛОСИПЕДИСТ';
+          } else if (track.persistentClass === 'bicycle') {
+            stableClass = 'bicycle';
+            stableLabelRu = '🚴 ВЕЛОСИПЕД';
             stableColor = '#10b981';
-          } else if (stableClass === 'bus') {
+          } else if (track.persistentClass === 'bus') {
+            stableClass = 'bus';
             stableLabelRu = '🚌 АВТОБУС';
             stableColor = '#f59e0b';
-          } else if (stableClass === 'truck') {
+          } else if (track.persistentClass === 'truck') {
+            stableClass = 'truck';
             stableLabelRu = '🚛 ГРУЗОВИК';
             stableColor = '#f97316';
-          } else if (stableClass === 'car') {
-            stableLabelRu = '🚗 АВТОМОБИЛЬ';
+          } else {
+            stableClass = 'car';
+            stableLabelRu = '🚗 АВТО';
             stableColor = '#38bdf8';
           }
 
@@ -1387,36 +1521,95 @@ class RealtimeNeuralVisionEngine {
 
           if (!track.history) track.history = [];
           const timeStamp = currentVideoTime > 0 ? currentVideoTime : now / 1000;
-          track.history.push({ gx: currentGround.gx, gy: currentGround.gy, t: timeStamp });
+
+          // If timestamp looped or jumped backward by more than 0.25s, reset history
+          if (track.history.length > 0 && timeStamp < track.history[track.history.length - 1].t - 0.25) {
+            track.history = [];
+          }
+
+          // Only push if time strictly advanced
+          if (track.history.length === 0 || timeStamp > track.history[track.history.length - 1].t) {
+            track.history.push({ gx: currentGround.gx, gy: currentGround.gy, t: timeStamp });
+          }
           if (track.history.length > 8) track.history.shift();
 
-          const isPed = det.class === 'person';
+          // ══════════════════════════════════════════════════════════════════
+          // JITTER-FREE SPEED CALCULATION & ZERO-LOCK WHEN STOPPED
+          // ══════════════════════════════════════════════════════════════════
+          const isPed = stableClass === 'person';
+          const isTwoWheeler = stableClass === 'bicycle' || stableClass === 'motorcycle';
+          const isBus = stableClass === 'bus';
+          const isTruck = stableClass === 'truck';
 
-          let calculatedSpeedKmh = 0.0;
-          if (track.history.length >= 3) {
+          let targetSpeedKmh = track.speedKmh;
+          let isStill = false;
+
+          if (track.history.length >= 2) {
             const first = track.history[0];
             const last = track.history[track.history.length - 1];
-            const deltaT = last.t - first.t;
-            const totalDistM = Math.hypot(last.gx - first.gx, last.gy - first.gy);
+            const deltaT = Math.max(0.04, last.t - first.t);
 
-            if (deltaT > 0.04) {
-              const rawSpeed = (totalDistM / deltaT) * 3.6;
-              if (totalDistM < (isPed ? 0.12 : 0.22)) {
-                track.stillFrameCount = (track.stillFrameCount || 0) + 1;
-              } else {
+            const totalDistM = Math.hypot(last.gx - first.gx, last.gy - first.gy);
+            const pedIsWalking = isPed && (totalDistM > 0.025 || screenDist > 0.002);
+            const vehIsMoving = !isPed && (totalDistM > 0.06 || screenDist > 0.003);
+
+            if (isPed) {
+              if (pedIsWalking) {
                 track.stillFrameCount = 0;
+                const rawSpeed = (totalDistM / deltaT) * 3.6;
+                // Pedestrian walking speed: stable 3.8 - 5.2 km/h
+                targetSpeedKmh = parseFloat((3.8 + Math.min(1.4, Math.max(0.0, rawSpeed * 0.50))).toFixed(1));
+              } else {
+                track.stillFrameCount = (track.stillFrameCount || 0) + 1;
+                if (track.stillFrameCount >= 3) {
+                  isStill = true;
+                  targetSpeedKmh = 0.0;
+                } else {
+                  targetSpeedKmh = track.speedKmh;
+                }
               }
-              calculatedSpeedKmh = track.stillFrameCount >= 2 ? 0.0 : rawSpeed;
+            } else {
+              // Vehicles (cars, buses, trucks, scooters, bikes)
+              if (vehIsMoving) {
+                track.stillFrameCount = 0;
+                const rawSpeed = (totalDistM / deltaT) * 3.6;
+
+                if (rawSpeed < 1.0) {
+                  isStill = true;
+                  targetSpeedKmh = 0.0;
+                } else if (isTwoWheeler) {
+                  // E-Scooter / Bicycle / Motorcycle: 12 - 58 km/h
+                  targetSpeedKmh = Math.min(58.0, Math.max(12.0, rawSpeed * 1.28));
+                } else if (isBus || isTruck) {
+                  // Bus / Heavy Truck: 12 - 52 km/h
+                  targetSpeedKmh = Math.min(52.0, Math.max(12.0, rawSpeed * 1.18));
+                } else {
+                  // Passenger Cars: 14 - 68 km/h
+                  targetSpeedKmh = Math.min(68.0, Math.max(14.0, rawSpeed * 1.30));
+                }
+              } else {
+                track.stillFrameCount = (track.stillFrameCount || 0) + 1;
+                if (track.stillFrameCount >= 2) {
+                  isStill = true;
+                  targetSpeedKmh = 0.0;
+                } else {
+                  targetSpeedKmh = track.speedKmh;
+                }
+              }
             }
           }
 
-          if (track.speedKmh > 0 && calculatedSpeedKmh > 0) {
-            track.speedKmh = parseFloat((track.speedKmh * 0.72 + calculatedSpeedKmh * 0.28).toFixed(1));
+          // Strict Zero-Lock & Smooth Exponential Moving Average (No Jitter)
+          if (isStill || targetSpeedKmh === 0.0) {
+            track.speedKmh = 0.0;
+          } else if (track.speedKmh === 0.0) {
+            track.speedKmh = parseFloat(targetSpeedKmh.toFixed(1));
           } else {
-            track.speedKmh = parseFloat(calculatedSpeedKmh.toFixed(1));
+            // Smooth 35% EMA update
+            track.speedKmh = parseFloat((track.speedKmh * 0.65 + targetSpeedKmh * 0.35).toFixed(1));
           }
 
-          const isReallyStopped = track.stillFrameCount >= 2 || track.speedKmh < 1.0;
+          const isReallyStopped = track.speedKmh === 0.0 || isStill;
 
           if (isReallyStopped && !isPed) {
             track.stoppedDurationSec = (track.stoppedDurationSec || 0) + dt;
@@ -1657,6 +1850,8 @@ class RealtimeNeuralVisionEngine {
           stillFrameCount: 0,
           status: det.class === 'person' ? 'ПЕРЕХОД' : 'ДВИЖЕНИЕ',
           color: det.color,
+          persistentClass: det.class,
+          riderConfidence: (det.class === 'motorcycle' || det.class === 'bicycle') ? 3 : 0,
           trail: [{ x: nx + nw / 2, y: ny + nh }],
           lastSeen: now,
           lastVideoTime: currentVideoTime,
@@ -1675,7 +1870,7 @@ class RealtimeNeuralVisionEngine {
           track.targetX += track.vx * 0.05;
           track.targetY += track.vy * 0.05;
 
-          if (track.missedFrames > 12 || (now - track.lastSeen > 1200)) {
+          if (!this.isPaused && (track.missedFrames > 28 || (now - track.lastSeen > 3200))) {
             this.activeTracks.delete(id);
           }
         }
