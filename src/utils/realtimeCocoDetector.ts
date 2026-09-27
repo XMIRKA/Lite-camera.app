@@ -261,42 +261,6 @@ class RealtimeNeuralVisionEngine {
       colorHex: '#38bdf8',
       activeViolationsCount: 0,
       enabled: true
-    },
-    {
-      id: 'solid_1',
-      type: 'solid_line',
-      name: 'Сплошная #1 (1.1)',
-      x: 0.38,
-      y: 0.28,
-      w: 0.01,
-      h: 0.66,
-      x2: 0.28,
-      y2: 0.94,
-      direction: 'MAIN_DIRECTION',
-      state: 'OFF',
-      manualOverride: 'AUTO',
-      confidence: 1.0,
-      colorHex: '#6366f1',
-      activeViolationsCount: 0,
-      enabled: true
-    },
-    {
-      id: 'solid_2',
-      type: 'solid_line',
-      name: 'Сплошная #2 (1.1)',
-      x: 0.62,
-      y: 0.28,
-      w: 0.01,
-      h: 0.66,
-      x2: 0.72,
-      y2: 0.94,
-      direction: 'MAIN_DIRECTION',
-      state: 'OFF',
-      manualOverride: 'AUTO',
-      confidence: 1.0,
-      colorHex: '#6366f1',
-      activeViolationsCount: 0,
-      enabled: true
     }
   ];
 

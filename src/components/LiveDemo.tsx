@@ -1439,7 +1439,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
             {/* 0. ИНТЕРАКТИВНОЕ ОБВЕДЕНИЕ СВЕТОФОРА (ROI) */}
             <div
               onClick={() => {
@@ -1502,27 +1502,6 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               </div>
               <div className="text-[9px] text-slate-400 font-mono">
                 {lang === 'ru' ? 'Разметка 1.14' : 'Marking 1.14'}
-              </div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                {lang === 'ru' ? '+ Добавить' : '+ Add'}
-              </div>
-            </div>
-
-            {/* 3. Сплошная линия разметки 1.1 */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'solid_line')}
-              onClick={() => handleAddElementFromPalette('solid_line')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 group-hover:scale-110 transition-transform mb-1.5">
-                <span className="text-sm font-bold">┃</span>
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">
-                {lang === 'ru' ? 'Сплошная линия' : 'Solid Line'}
-              </div>
-              <div className="text-[9px] text-slate-400 font-mono">
-                {lang === 'ru' ? 'Разметка 1.1' : 'Marking 1.1'}
               </div>
               <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
                 {lang === 'ru' ? '+ Добавить' : '+ Add'}
@@ -2192,11 +2171,10 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
         {/* Violations Category Filter Buttons */}
         <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
           {[
-            { id: 'all', label: `Все (${violationsList.length})` },
-            { id: 'solid', label: 'Сплошная 1.1' },
-            { id: 'red', label: 'Красный свет' },
-            { id: 'jay', label: 'Пешеход' },
-            { id: 'speed', label: 'Скорость' },
+            { id: 'all', label: lang === 'ru' ? `Все (${violationsList.length})` : `All (${violationsList.length})` },
+            { id: 'red', label: lang === 'ru' ? 'Красный свет' : 'Red Light' },
+            { id: 'jay', label: lang === 'ru' ? 'Пешеход' : 'Pedestrian' },
+            { id: 'speed', label: lang === 'ru' ? 'Скорость' : 'Speed' },
             { id: 'hazard', label: 'TTC < 2.0с' }
           ].map(tab => (
             <button
@@ -2309,25 +2287,21 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
                   </div>
                   <p className="text-xs text-slate-400 mt-0.5">
-                    Все размещенные дорожные объекты (светофоры, стоп-линии, радары, разметка 1.1) контролируют поток в реальном времени.
+                    {lang === 'ru'
+                      ? 'Все размещенные дорожные объекты (светофоры, стоп-линии) контролируют поток в реальном времени.'
+                      : 'All configured infrastructure elements (traffic lights, stop lines) monitor real-time traffic.'}
                   </p>
                 </div>
               </div>
 
               {/* Quick Test Incident Simulations */}
               <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
-                <span className="text-slate-500 text-[10px] mr-1">Тест правил:</span>
-                <button
-                  onClick={() => handleSimulateViolation('solid_line_crossing')}
-                  className="px-2 py-1 bg-indigo-950/60 hover:bg-indigo-900/80 text-indigo-300 border border-indigo-500/30 rounded-md transition-colors cursor-pointer"
-                >
-                  ⚡ Сплошная
-                </button>
+                <span className="text-slate-500 text-[10px] mr-1">{lang === 'ru' ? 'Тест правил:' : 'Test Rules:'}</span>
                 <button
                   onClick={() => handleSimulateViolation('red_light')}
                   className="px-2 py-1 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-500/30 rounded-md transition-colors cursor-pointer"
                 >
-                  🔴 Красный
+                  🔴 {lang === 'ru' ? 'Красный' : 'Red Light'}
                 </button>
                 <button
                   onClick={() => handleSimulateViolation('jaywalking')}
