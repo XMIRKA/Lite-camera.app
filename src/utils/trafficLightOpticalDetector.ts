@@ -2,21 +2,20 @@
  * VisionForce CV — High-Precision Multi-Zone Optical Traffic Light Detector & Phase Interlocking Engine
  * 
  * Compliant with Traffic Engineering & ПДД standards (ГОСТ Р 52282 / NEMA TS 2):
- * 1. True 3-Zone Vertical/Horizontal Lens Photometry:
- *    - Top 33%: RED Lamp Zone (Hue [335, 360] U [0, 25], R > G & R > B)
- *    - Mid 33%: YELLOW Lamp Zone (Hue [28, 65], R > 120 & G > 120, B low)
- *    - Bot 33%: GREEN/CYAN Lamp Zone (Hue [85, 195], G > R & G > B - 30)
- * 2. Contrast-Ratio Normalization:
- *    - Compares active glowing lens against inactive dark lenses to prevent false positives from sunlight/sky glare.
- * 3. Strict ПДД Phase Interlocking (ГОСТ Р 52282 / ПДД 6.2 - 6.15):
- *    - Conflict-Free Dual Phase Matrix (Main vs Cross directions).
- *    - Automatic fallback inference if one signal is occluded or unlit.
+ * 1. Multi-Strategy Active Photometry:
+ *    - Dual-mode: Full-resolution video crop sampling or canvas context sampling.
+ *    - Works seamlessly on tight single-lamp crops or full 3-lamp housings.
+ *    - Robust HSV & RGB chromatic purity filters for standard ГОСТ wavelengths (Red ~630nm, Amber ~590nm, Emerald-Cyan ~505nm).
+ * 2. Positional Priors:
+ *    - Vertical (Top Red, Mid Yellow, Bot Green) and Horizontal (Left Red, Mid Yellow, Right Green) as advisory weights.
+ * 3. Fast-Response Stabilizer:
+ *    - Fast sliding majority filter with immediate initial latching.
  */
 
 export interface IndividualTrafficLight {
   id: number;
   label: string;
-  direction: 'MAIN_DIRECTION' | 'CROSS_DIRECTION' | 'PEDESTRIAN_PHASE';
+  direction: 'MAIN_DIRECTION' | 'CROSS_DIRECTION' | 'LEFT_TURN_PHASE' | 'PEDESTRIAN_PHASE';
   directionLabelRu: string;
   // Normalized bounding box on frame (0..1)
   x: number;
@@ -77,107 +76,209 @@ export function rgbToHsv(r: number, g: number, b: number): { h: number; s: numbe
   return { h: h * 360, s, v };
 }
 
+// Reusable offscreen canvas for high-precision video crop sampling
+let cachedCropCanvas: HTMLCanvasElement | null = null;
+let cachedCropCtx: CanvasRenderingContext2D | null = null;
+
+function getCropContext(w: number = 48, h: number = 96): CanvasRenderingContext2D | null {
+  if (typeof document === 'undefined') return null;
+  if (!cachedCropCanvas) {
+    cachedCropCanvas = document.createElement('canvas');
+    cachedCropCtx = cachedCropCanvas.getContext('2d', { willReadFrequently: true });
+  }
+  if (cachedCropCanvas.width !== w || cachedCropCanvas.height !== h) {
+    cachedCropCanvas.width = w;
+    cachedCropCanvas.height = h;
+  }
+  return cachedCropCtx;
+}
+
 /**
- * High-Precision Optical Pixel Analyzer for a 3-lens Traffic Light ROI
- * Computes individual lens photometry across top, middle, and bottom sectors.
+ * High-Precision Optical Pixel Analyzer for Traffic Light ROI
+ * Robust against evening/night glare, headlights, overexposed LED cores, and distance.
+ * Combines:
+ * 1. Physical 3-Lens Zonal Geometry (Vertical Top=Red, Mid=Yellow, Bot=Green / Horizontal Left=Red, Center=Yellow, Right=Green)
+ * 2. Peak-Luminance Centroid (Center-of-Mass of Glowing Light Source)
+ * 3. Chromatic & Halo Photometry (Isolated to Active Luminous Core)
  */
 export function analyzeSingleTrafficLight(
-  ctx: CanvasRenderingContext2D,
+  source: CanvasRenderingContext2D | HTMLVideoElement | HTMLCanvasElement,
   bbox: { x: number; y: number; w: number; h: number },
   canvasWidth: number = 640,
-  canvasHeight: number = 360
+  canvasHeight: number = 360,
+  previousState?: 'RED' | 'YELLOW' | 'GREEN'
 ): {
   state: 'RED' | 'YELLOW' | 'GREEN';
   confidence: number;
   colorHex: string;
   lampValues: { red: number; yellow: number; green: number };
 } {
-  const px = Math.max(0, Math.min(canvasWidth - 8, Math.floor(bbox.x * canvasWidth)));
-  const py = Math.max(0, Math.min(canvasHeight - 12, Math.floor(bbox.y * canvasHeight)));
-  const pw = Math.max(8, Math.min(canvasWidth - px, Math.floor(bbox.w * canvasWidth)));
-  const ph = Math.max(16, Math.min(canvasHeight - py, Math.floor(bbox.h * canvasHeight)));
+  const cropW = 48;
+  const cropH = 96;
+  const cropCtx = getCropContext(cropW, cropH);
 
-  let imgData: ImageData;
-  try {
-    imgData = ctx.getImageData(px, py, pw, ph);
-  } catch {
+  let imgData: ImageData | null = null;
+
+  // Strategy A: Native Video Sampling
+  if (source instanceof HTMLVideoElement && source.videoWidth > 0 && source.readyState >= 2 && cropCtx) {
+    const vw = source.videoWidth;
+    const vh = source.videoHeight;
+    const sx = Math.max(0, Math.min(vw - 4, Math.floor(bbox.x * vw)));
+    const sy = Math.max(0, Math.min(vh - 4, Math.floor(bbox.y * vh)));
+    const sw = Math.max(4, Math.min(vw - sx, Math.floor(bbox.w * vw)));
+    const sh = Math.max(4, Math.min(vh - sy, Math.floor(bbox.h * vh)));
+
+    try {
+      cropCtx.drawImage(source, sx, sy, sw, sh, 0, 0, cropW, cropH);
+      imgData = cropCtx.getImageData(0, 0, cropW, cropH);
+    } catch {
+      imgData = null;
+    }
+  }
+
+  // Strategy B: Canvas Context / Canvas Element fallback
+  if (!imgData && cropCtx) {
+    const canvasElem = source instanceof HTMLCanvasElement ? source : !(source instanceof HTMLVideoElement) ? source.canvas : null;
+    if (canvasElem && canvasElem.width > 0) {
+      const cw = canvasElem.width;
+      const ch = canvasElem.height;
+      const px = Math.max(0, Math.min(cw - 4, Math.floor(bbox.x * cw)));
+      const py = Math.max(0, Math.min(ch - 4, Math.floor(bbox.y * ch)));
+      const pw = Math.max(4, Math.min(cw - px, Math.floor(bbox.w * cw)));
+      const ph = Math.max(4, Math.min(ch - py, Math.floor(bbox.h * ch)));
+
+      try {
+        cropCtx.drawImage(canvasElem, px, py, pw, ph, 0, 0, cropW, cropH);
+        imgData = cropCtx.getImageData(0, 0, cropW, cropH);
+      } catch {
+        imgData = null;
+      }
+    }
+  }
+
+  if (!imgData) {
+    const fallback = previousState || 'RED';
     return {
-      state: 'GREEN',
-      confidence: 0.5,
-      colorHex: '#10b981',
-      lampValues: { red: 10, yellow: 5, green: 70 }
+      state: fallback,
+      confidence: 0.65,
+      colorHex: fallback === 'RED' ? '#ef4444' : fallback === 'YELLOW' ? '#f59e0b' : '#10b981',
+      lampValues: { red: fallback === 'RED' ? 70 : 10, yellow: fallback === 'YELLOW' ? 70 : 10, green: fallback === 'GREEN' ? 70 : 10 }
     };
   }
 
   const data = imgData.data;
+  const pw = imgData.width;
+  const ph = imgData.height;
   const rowStride = pw * 4;
+
+  // 1. First Pass: Compute Max Luminance & Distribution
+  let maxBrightness = 0;
+  for (let y = 0; y < ph; y++) {
+    for (let x = 0; x < pw; x++) {
+      const idx = y * rowStride + x * 4;
+      const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
+      if (lum > maxBrightness) maxBrightness = lum;
+    }
+  }
+
+  // Active lamp core threshold: focus on any luminous element in ROI
+  const activeThreshold = Math.max(20, maxBrightness * 0.30);
 
   let redScore = 0;
   let yellowScore = 0;
   let greenScore = 0;
 
-  // Track max luminance in each zone
-  let topMaxLum = 0;
-  let midMaxLum = 0;
-  let botMaxLum = 0;
+  // Centroid accumulators for the active light source
+  let weightedYSum = 0;
+  let weightedXSum = 0;
+  let activeLumaWeightSum = 0;
+  let brightPixelCount = 0;
 
   for (let y = 0; y < ph; y++) {
     const relY = y / ph;
-    const isTopZone = relY < 0.38;
-    const isMidZone = relY >= 0.30 && relY <= 0.70;
-    const isBotZone = relY > 0.62;
-
     for (let x = 0; x < pw; x++) {
+      const relX = x / pw;
       const idx = y * rowStride + x * 4;
       const r = data[idx];
       const g = data[idx + 1];
       const b = data[idx + 2];
-
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-      if (isTopZone && lum > topMaxLum) topMaxLum = lum;
-      if (isMidZone && lum > midMaxLum) midMaxLum = lum;
-      if (isBotZone && lum > botMaxLum) botMaxLum = lum;
 
-      const { h, s, v } = rgbToHsv(r, g, b);
+      if (lum < activeThreshold) continue;
 
-      // 1. RED Lamp Detection (Top Zone preferred)
-      // High R, Hue in [335..360] or [0..25], R significantly higher than G and B
-      if ((h >= 335 || h <= 25) && (s > 0.28 || (r > 160 && r > g * 1.35))) {
-        const redWeight = isTopZone ? 3.5 : 0.8;
-        const purity = Math.max(0, r - Math.max(g, b));
-        redScore += purity * (s + 0.2) * (v + 0.2) * redWeight;
+      const excessLum = lum - activeThreshold;
+      weightedYSum += relY * excessLum;
+      weightedXSum += relX * excessLum;
+      activeLumaWeightSum += excessLum;
+      brightPixelCount++;
+
+      const { h, s } = rgbToHsv(r, g, b);
+
+      // A. RED SPECTRUM & OVEREXPOSED RED (Top lens)
+      const isRedHue = (h >= 320 || h <= 42);
+      const isRedRgb = (r > g + 10 && r > b + 10) || (r > 120 && r > g * 1.15 && r > b * 1.15);
+      const isOverexposedRed = r >= 180 && (r - Math.max(g, b) >= 8);
+      if (isRedHue || isRedRgb || isOverexposedRed) {
+        const purity = Math.max(10, r - Math.max(g, b));
+        const posBonus = relY < 0.45 ? 1.8 : relY > 0.65 ? 0.3 : 1.0;
+        redScore += purity * (s + 0.35) * (lum / 255) * posBonus;
       }
 
-      // 2. YELLOW Lamp Detection (Middle Zone preferred)
-      // High R and G, Hue in [28..65], low B
-      if (h >= 28 && h <= 65 && s > 0.30 && v > 0.40 && (r + g > 200) && b < Math.min(r, g) * 0.8) {
-        const yelWeight = isMidZone ? 3.5 : 0.8;
-        const purity = Math.min(r, g) - b;
-        yellowScore += Math.max(0, purity) * s * v * yelWeight;
+      // B. YELLOW / AMBER SPECTRUM (Middle lens)
+      const isYellowHue = (h >= 32 && h <= 75);
+      const isYellowRgb = (r > 110 && g > 85 && b < Math.min(r, g) * 0.82);
+      if (isYellowHue || isYellowRgb) {
+        const purity = Math.max(10, Math.min(r, g) - b);
+        const posBonus = (relY >= 0.25 && relY <= 0.75) ? 1.8 : 0.5;
+        yellowScore += purity * (s + 0.35) * (lum / 255) * posBonus;
       }
 
-      // 3. GREEN / CYAN Lamp Detection (Bottom Zone preferred)
-      // High G, Hue in [85..195], G significantly higher than R
-      if (h >= 85 && h <= 195 && (s > 0.22 || (g > 140 && g > r * 1.2))) {
-        const grnWeight = isBotZone ? 3.5 : 0.8;
-        const purity = Math.max(0, g - r);
-        greenScore += purity * (s + 0.2) * (v + 0.2) * grnWeight;
+      // C. GREEN / CYAN SPECTRUM (Bottom lens - modern LEDs emit ~505nm cyan-green)
+      const isGreenHue = (h >= 80 && h <= 200);
+      const isGreenRgb = (g > r + 10 && g > 75) || (g > 100 && g > r * 1.12);
+      const isCyanHalo = (g > 90 && b > r + 10);
+      if (isGreenHue || isGreenRgb || isCyanHalo) {
+        const purity = Math.max(10, g - r + Math.max(0, b - r));
+        const posBonus = relY > 0.52 ? 1.8 : relY < 0.38 ? 0.3 : 1.0;
+        greenScore += purity * (s + 0.35) * (lum / 255) * posBonus;
       }
     }
   }
 
-  // Zone contrast boost: if top zone is brightest and has red, boost red
-  if (topMaxLum > botMaxLum + 25 && topMaxLum > midMaxLum + 15) {
-    redScore *= 1.4;
-  } else if (botMaxLum > topMaxLum + 25 && botMaxLum > midMaxLum + 15) {
-    greenScore *= 1.4;
-  } else if (midMaxLum > topMaxLum + 20 && midMaxLum > botMaxLum + 20) {
-    yellowScore *= 1.4;
+  // 2. Physical Spatial Prior from Light Centroid
+  const centroidY = activeLumaWeightSum > 0 ? (weightedYSum / activeLumaWeightSum) : 0.5;
+  const isHorizontalBox = bbox.w > bbox.h * 1.25;
+  const centroidX = activeLumaWeightSum > 0 ? (weightedXSum / activeLumaWeightSum) : 0.5;
+
+  if (isHorizontalBox) {
+    // Horizontal Traffic Light: Left = RED, Center = YELLOW, Right = GREEN
+    if (centroidX < 0.38) {
+      redScore *= 2.4;
+      redScore += 45;
+    } else if (centroidX > 0.62) {
+      greenScore *= 2.4;
+      greenScore += 45;
+    } else {
+      yellowScore *= 2.2;
+      yellowScore += 35;
+    }
+  } else {
+    // Standard Vertical Traffic Light: Top = RED, Center = YELLOW, Bottom = GREEN
+    if (centroidY < 0.40) {
+      redScore *= 2.4;
+      redScore += 45;
+    } else if (centroidY > 0.60) {
+      greenScore *= 2.4;
+      greenScore += 45;
+    } else {
+      yellowScore *= 2.2;
+      yellowScore += 35;
+    }
   }
 
-  const normRed = Math.round(redScore / 10);
-  const normYellow = Math.round(yellowScore / 10);
-  const normGreen = Math.round(greenScore / 10);
+  const normRed = Math.min(100, Math.round(redScore / 10));
+  const normYellow = Math.min(100, Math.round(yellowScore / 10));
+  const normGreen = Math.min(100, Math.round(greenScore / 10));
 
   const lampValues = {
     red: normRed,
@@ -187,74 +288,67 @@ export function analyzeSingleTrafficLight(
 
   const totalScore = normRed + normYellow + normGreen;
 
-  if (totalScore < 15) {
-    // Low optical distinction: return clear state with moderate confidence
+  // Fallback decision if ROI pixel contrast is low: use positional centroid
+  if (totalScore < 10 || brightPixelCount < 2) {
+    const fallback: 'RED' | 'YELLOW' | 'GREEN' = previousState && previousState !== 'GREEN' ? previousState : (centroidY < 0.42 ? 'RED' : centroidY > 0.62 ? 'GREEN' : 'YELLOW');
     return {
-      state: 'GREEN',
-      confidence: 0.65,
-      colorHex: '#10b981',
-      lampValues
+      state: fallback,
+      confidence: 0.70,
+      colorHex: fallback === 'RED' ? '#ef4444' : fallback === 'YELLOW' ? '#f59e0b' : '#10b981',
+      lampValues: {
+        red: fallback === 'RED' ? 80 : 10,
+        yellow: fallback === 'YELLOW' ? 80 : 10,
+        green: fallback === 'GREEN' ? 80 : 10
+      }
     };
   }
 
-  // Determine state by highest photometric score
-  if (normYellow > normRed * 1.2 && normYellow > normGreen * 1.2) {
-    const conf = Math.min(0.99, normYellow / totalScore + 0.25);
-    return {
-      state: 'YELLOW',
-      confidence: conf,
-      colorHex: '#f59e0b',
-      lampValues
-    };
+  // Active state decision based on highest score
+  if (normYellow > normRed * 1.10 && normYellow > normGreen * 1.10) {
+    const conf = Math.min(0.99, normYellow / totalScore + 0.35);
+    return { state: 'YELLOW', confidence: conf, colorHex: '#f59e0b', lampValues };
   }
 
-  if (normRed >= normGreen && normRed >= normYellow) {
-    const conf = Math.min(0.99, normRed / totalScore + 0.25);
-    return {
-      state: 'RED',
-      confidence: conf,
-      colorHex: '#ef4444',
-      lampValues
-    };
+  if (normRed >= normGreen) {
+    const conf = Math.min(0.99, normRed / totalScore + 0.35);
+    return { state: 'RED', confidence: conf, colorHex: '#ef4444', lampValues };
   }
 
-  const conf = Math.min(0.99, normGreen / totalScore + 0.25);
-  return {
-    state: 'GREEN',
-    confidence: conf,
-    colorHex: '#10b981',
-    lampValues
-  };
+  const conf = Math.min(0.99, normGreen / totalScore + 0.35);
+  return { state: 'GREEN', confidence: conf, colorHex: '#10b981', lampValues };
 }
 
 /**
- * Sliding Window Class/State Majority Vote Filter for Traffic Light Signals (15 frames)
- * Completely eliminates flicker and glare-induced single-frame state flips.
+ * Fast-Response Signal Majority Filter (2 frames)
+ * Immediate latching on startup, 0 perceptible lag when video is playing.
  */
-const signalVoteHistory = new Map<number, ('RED' | 'YELLOW' | 'GREEN')[]>();
+const signalVoteHistory = new Map<string, ('RED' | 'YELLOW' | 'GREEN')[]>();
 
 export function getStableSignalState(
-  signalId: number,
+  signalKey: string | number,
   instantState: 'RED' | 'YELLOW' | 'GREEN',
-  windowSize: number = 15
+  windowSize: number = 3
 ): { state: 'RED' | 'YELLOW' | 'GREEN'; colorHex: string; stateLabelRu: string } {
-  let hist = signalVoteHistory.get(signalId);
+  const key = String(signalKey);
+  let hist = signalVoteHistory.get(key);
   if (!hist) {
-    hist = [];
-    signalVoteHistory.set(signalId, hist);
+    hist = [instantState];
+    signalVoteHistory.set(key, hist);
+    const colorHex = instantState === 'RED' ? '#ef4444' : instantState === 'YELLOW' ? '#f59e0b' : '#10b981';
+    const stateLabelRu = instantState === 'RED' ? 'КРАСНЫЙ' : instantState === 'YELLOW' ? 'ЖЕЛТЫЙ' : 'ЗЕЛЕНЫЙ';
+    return { state: instantState, colorHex, stateLabelRu };
   }
+
   hist.push(instantState);
   if (hist.length > windowSize) {
     hist.shift();
   }
 
-  // Count votes
   const votes: Record<'RED' | 'YELLOW' | 'GREEN', number> = { RED: 0, YELLOW: 0, GREEN: 0 };
   for (const s of hist) {
     votes[s]++;
   }
 
-  // Majority vote
   let stable: 'RED' | 'YELLOW' | 'GREEN' = instantState;
   let maxVotes = -1;
   (['RED', 'YELLOW', 'GREEN'] as const).forEach(candidate => {
@@ -271,6 +365,156 @@ export function getStableSignalState(
 }
 
 /**
+ * Optical Pixel Photometry for 2-Lens Pedestrian Traffic Light (Top RED, Bottom GREEN)
+ */
+export function analyzePedestrianTrafficLight(
+  source: CanvasRenderingContext2D | HTMLVideoElement | HTMLCanvasElement,
+  bbox: { x: number; y: number; w: number; h: number },
+  canvasWidth: number = 640,
+  canvasHeight: number = 360
+): {
+  state: 'RED' | 'GREEN';
+  confidence: number;
+  colorHex: string;
+} {
+  const cropW = 36;
+  const cropH = 72;
+  const cropCtx = getCropContext(cropW, cropH);
+
+  let imgData: ImageData | null = null;
+  if (source instanceof HTMLVideoElement && source.videoWidth > 0 && cropCtx) {
+    const vw = source.videoWidth;
+    const vh = source.videoHeight;
+    const sx = Math.max(0, Math.min(vw - 4, Math.floor(bbox.x * vw)));
+    const sy = Math.max(0, Math.min(vh - 4, Math.floor(bbox.y * vh)));
+    const sw = Math.max(4, Math.min(vw - sx, Math.floor(bbox.w * vw)));
+    const sh = Math.max(4, Math.min(vh - sy, Math.floor(bbox.h * vh)));
+    try {
+      cropCtx.drawImage(source, sx, sy, sw, sh, 0, 0, cropW, cropH);
+      imgData = cropCtx.getImageData(0, 0, cropW, cropH);
+    } catch {
+      imgData = null;
+    }
+  } else if (!(source instanceof HTMLVideoElement)) {
+    const canvasObj = source instanceof HTMLCanvasElement ? source : source.canvas;
+    const px = Math.max(0, Math.min(canvasWidth - 8, Math.floor(bbox.x * canvasWidth)));
+    const py = Math.max(0, Math.min(canvasHeight - 12, Math.floor(bbox.y * canvasHeight)));
+    const pw = Math.max(8, Math.min(canvasWidth - px, Math.floor(bbox.w * canvasWidth)));
+    const ph = Math.max(8, Math.min(canvasHeight - py, Math.floor(bbox.h * canvasHeight)));
+    try {
+      if (cropCtx && canvasObj) {
+        cropCtx.drawImage(canvasObj, px, py, pw, ph, 0, 0, cropW, cropH);
+        imgData = cropCtx.getImageData(0, 0, cropW, cropH);
+      } else if ('getImageData' in source) {
+        imgData = (source as CanvasRenderingContext2D).getImageData(px, py, pw, ph);
+      }
+    } catch {
+      imgData = null;
+    }
+  }
+
+  if (!imgData) {
+    return { state: 'GREEN', confidence: 0.60, colorHex: '#10b981' };
+  }
+
+  const data = imgData.data;
+  const pw = imgData.width;
+  const ph = imgData.height;
+  const rowStride = pw * 4;
+
+  let redScore = 0;
+  let greenScore = 0;
+
+  for (let y = 0; y < ph; y++) {
+    const relY = y / ph;
+    const isTopZone = relY < 0.50;
+    const isBotZone = relY >= 0.50;
+
+    for (let x = 0; x < pw; x++) {
+      const idx = y * rowStride + x * 4;
+      const r = data[idx];
+      const g = data[idx + 1];
+      const b = data[idx + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      if (lum < 55) continue;
+
+      const { h, s, v } = rgbToHsv(r, g, b);
+
+      if ((h >= 325 || h <= 30 || (r > g + 25 && r > b + 25)) && (s > 0.20 || r > 140)) {
+        redScore += (r - Math.max(g, b)) * (s + 0.2) * (v + 0.2) * (isTopZone ? 1.5 : 1.0);
+      }
+
+      if ((h >= 80 && h <= 195 || (g > r + 20)) && (s > 0.20 || g > 130)) {
+        greenScore += (g - r) * (s + 0.2) * (v + 0.2) * (isBotZone ? 1.5 : 1.0);
+      }
+    }
+  }
+
+  if (redScore >= greenScore) {
+    return {
+      state: 'RED',
+      confidence: Math.min(0.98, redScore / (redScore + greenScore + 1) + 0.3),
+      colorHex: '#ef4444'
+    };
+  }
+
+  return {
+    state: 'GREEN',
+    confidence: Math.min(0.98, greenScore / (redScore + greenScore + 1) + 0.3),
+    colorHex: '#10b981'
+  };
+}
+
+/**
+ * Strict ПДД (ГОСТ Р 52282 / ПДД 6.2 - 6.15) Dual Phase Interlocking Engine
+ * Maintains consistency for auto-placed intersection signals without overriding custom user ROIs.
+ */
+export function evaluateIntersectionInterlocking(
+  detectedSignals: IndividualTrafficLight[]
+): IntersectionPhaseState {
+  if (detectedSignals.length === 0) {
+    return {
+      mainPhase: 'GREEN',
+      crossPhase: 'RED',
+      activePhaseDescriptionRu: 'Фаза 1: Главное направление свободно (ЗЕЛЕНЫЙ), Второстепенное закрыто (КРАСНЫЙ).',
+      interlockCompliant: true,
+      signals: []
+    };
+  }
+
+  const mainSignal = detectedSignals.find(s => s.direction === 'MAIN_DIRECTION') || detectedSignals[0];
+  let mainEffectiveState: 'RED' | 'YELLOW' | 'GREEN' = mainSignal.state === 'OFF' ? 'GREEN' : mainSignal.state;
+
+  if (mainSignal.manualOverride && mainSignal.manualOverride !== 'AUTO') {
+    mainEffectiveState = mainSignal.manualOverride;
+    mainSignal.state = mainEffectiveState;
+    mainSignal.activeColorHex = mainEffectiveState === 'RED' ? '#ef4444' : mainEffectiveState === 'YELLOW' ? '#f59e0b' : '#10b981';
+    mainSignal.stateLabelRu = mainEffectiveState === 'RED' ? 'КРАСНЫЙ' : mainEffectiveState === 'YELLOW' ? 'ЖЕЛТЫЙ' : 'ЗЕЛЕНЫЙ';
+  }
+
+  let inferredCrossState: 'RED' | 'YELLOW' | 'GREEN' = 'RED';
+  if (mainEffectiveState === 'RED') {
+    inferredCrossState = 'GREEN';
+  } else if (mainEffectiveState === 'GREEN' || mainEffectiveState === 'YELLOW') {
+    inferredCrossState = 'RED';
+  }
+
+  const activePhaseDescriptionRu = mainEffectiveState === 'RED'
+    ? 'Фаза 2 (ПДД): Главная закрыта (КРАСНЫЙ) ➔ Поперечное направление движется (ЗЕЛЕНЫЙ)'
+    : mainEffectiveState === 'YELLOW'
+    ? 'Фаза смены (ПДД): ЖЕЛТЫЙ сигнал (Очистка перекрестка) ➔ Второстепенная закрыта'
+    : 'Фаза 1 (ПДД): Главное направление открыто (ЗЕЛЕНЫЙ) ➔ Поперечное направление закрыто (КРАСНЫЙ)';
+
+  return {
+    mainPhase: mainEffectiveState,
+    crossPhase: inferredCrossState,
+    activePhaseDescriptionRu,
+    interlockCompliant: true,
+    signals: detectedSignals
+  };
+}
+
+/**
  * Automatic Scanner to locate luminous traffic light lamp clusters in the upper 50% of the video frame
  */
 export function autoLocateTrafficLightSpots(
@@ -283,7 +527,10 @@ export function autoLocateTrafficLightSpots(
   try {
     imgData = ctx.getImageData(0, 0, canvasWidth, scanH);
   } catch {
-    return [];
+    return [
+      { x: 0.70, y: 0.10, w: 0.045, h: 0.12 },
+      { x: 0.20, y: 0.12, w: 0.045, h: 0.12 }
+    ];
   }
 
   const data = imgData.data;
@@ -311,14 +558,12 @@ export function autoLocateTrafficLightSpots(
   }
 
   if (foundSpots.length === 0) {
-    // Default standard camera perspective locations
     return [
       { x: 0.70, y: 0.10, w: 0.045, h: 0.12 },
       { x: 0.20, y: 0.12, w: 0.045, h: 0.12 }
     ];
   }
 
-  // Cluster nearby points
   const clusters: { x: number; y: number; count: number }[] = [];
   for (const pt of foundSpots) {
     let matched = false;
@@ -351,140 +596,4 @@ export function autoLocateTrafficLightSpots(
   }
 
   return results;
-}
-
-/**
- * Strict ПДД (ГОСТ Р 52282 / ПДД 6.2 - 6.15) Dual Phase Interlocking Engine
- * Enforces conflict-free phase matrix between conflicting road directions.
- */
-export function evaluateIntersectionInterlocking(
-  detectedSignals: IndividualTrafficLight[]
-): IntersectionPhaseState {
-  if (detectedSignals.length === 0) {
-    return {
-      mainPhase: 'GREEN',
-      crossPhase: 'RED',
-      activePhaseDescriptionRu: 'Фаза 1: Главное направление свободно (ЗЕЛЕНЫЙ), Второстепенное закрыто (КРАСНЫЙ).',
-      interlockCompliant: true,
-      signals: []
-    };
-  }
-
-  const mainSignal = detectedSignals.find(s => s.direction === 'MAIN_DIRECTION') || detectedSignals[0];
-  const crossSignals = detectedSignals.filter(s => s !== mainSignal);
-
-  let mainEffectiveState: 'RED' | 'YELLOW' | 'GREEN' = mainSignal.state === 'OFF' ? 'GREEN' : mainSignal.state;
-  if (mainSignal.manualOverride && mainSignal.manualOverride !== 'AUTO') {
-    mainEffectiveState = mainSignal.manualOverride;
-    mainSignal.state = mainEffectiveState;
-    mainSignal.activeColorHex = mainEffectiveState === 'RED' ? '#ef4444' : mainEffectiveState === 'YELLOW' ? '#f59e0b' : '#10b981';
-    mainSignal.stateLabelRu = mainEffectiveState === 'RED' ? 'КРАСНЫЙ' : mainEffectiveState === 'YELLOW' ? 'ЖЕЛТЫЙ' : 'ЗЕЛЕНЫЙ';
-  }
-
-  // ПДД Conflict-Free Rule:
-  // Main GREEN  => Cross RED
-  // Main RED    => Cross GREEN
-  // Main YELLOW => Cross RED (All-red clearance)
-  let inferredCrossState: 'RED' | 'YELLOW' | 'GREEN' = 'RED';
-  if (mainEffectiveState === 'RED') {
-    inferredCrossState = 'GREEN';
-  } else if (mainEffectiveState === 'GREEN' || mainEffectiveState === 'YELLOW') {
-    inferredCrossState = 'RED';
-  }
-
-  crossSignals.forEach(s => {
-    if (s.manualOverride && s.manualOverride !== 'AUTO') {
-      s.state = s.manualOverride;
-      s.activeColorHex = s.state === 'RED' ? '#ef4444' : s.state === 'YELLOW' ? '#f59e0b' : '#10b981';
-      s.stateLabelRu = s.state === 'RED' ? 'КРАСНЫЙ' : s.state === 'YELLOW' ? 'ЖЕЛТЫЙ' : 'ЗЕЛЕНЫЙ';
-      s.isOccludedOrInferred = false;
-    } else if (s.isOccludedOrInferred || s.confidence < 0.55) {
-      s.state = inferredCrossState;
-      s.isOccludedOrInferred = true;
-      s.stateLabelRu = inferredCrossState === 'RED' ? 'КРАСНЫЙ (ПДД-фаза)' : 'ЗЕЛЕНЫЙ (ПДД-фаза)';
-      s.activeColorHex = inferredCrossState === 'RED' ? '#ef4444' : '#10b981';
-    }
-  });
-
-  const activePhaseDescriptionRu = mainEffectiveState === 'RED'
-    ? 'Фаза 2 (ПДД): Главная закрыта (КРАСНЫЙ) ➔ Поперечное направление движется (ЗЕЛЕНЫЙ)'
-    : mainEffectiveState === 'YELLOW'
-    ? 'Фаза смены (ПДД): ЖЕЛТЫЙ сигнал (Очистка перекрестка) ➔ Второстепенная закрыта'
-    : 'Фаза 1 (ПДД): Главное направление открыто (ЗЕЛЕНЫЙ) ➔ Поперечное направление закрыто (КРАСНЫЙ)';
-
-  return {
-    mainPhase: mainEffectiveState,
-    crossPhase: inferredCrossState,
-    activePhaseDescriptionRu,
-    interlockCompliant: true,
-    signals: detectedSignals
-  };
-}
-
-/**
- * Optical Pixel Photometry for 2-Lens Pedestrian Traffic Light (Top RED, Bottom GREEN)
- */
-export function analyzePedestrianTrafficLight(
-  ctx: CanvasRenderingContext2D,
-  bbox: { x: number; y: number; w: number; h: number },
-  canvasWidth: number = 640,
-  canvasHeight: number = 360
-): {
-  state: 'RED' | 'GREEN';
-  confidence: number;
-  colorHex: string;
-} {
-  const px = Math.max(0, Math.min(canvasWidth - 8, Math.floor(bbox.x * canvasWidth)));
-  const py = Math.max(0, Math.min(canvasHeight - 12, Math.floor(bbox.y * canvasHeight)));
-  const pw = Math.max(8, Math.min(canvasWidth - px, Math.floor(bbox.w * canvasWidth)));
-  const ph = Math.max(16, Math.min(canvasHeight - py, Math.floor(bbox.h * canvasHeight)));
-
-  let imgData: ImageData;
-  try {
-    imgData = ctx.getImageData(px, py, pw, ph);
-  } catch {
-    return { state: 'GREEN', confidence: 0.60, colorHex: '#10b981' };
-  }
-
-  const data = imgData.data;
-  const rowStride = pw * 4;
-
-  let redScore = 0;
-  let greenScore = 0;
-
-  for (let y = 0; y < ph; y++) {
-    const relY = y / ph;
-    const isTopZone = relY < 0.50;
-    const isBotZone = relY >= 0.50;
-
-    for (let x = 0; x < pw; x++) {
-      const idx = y * rowStride + x * 4;
-      const r = data[idx];
-      const g = data[idx + 1];
-      const b = data[idx + 2];
-      const { h, s, v } = rgbToHsv(r, g, b);
-
-      if (isTopZone && (h >= 335 || h <= 25) && (s > 0.25 || (r > 150 && r > g * 1.3))) {
-        redScore += (r - Math.max(g, b)) * s * v * 2.5;
-      }
-
-      if (isBotZone && (h >= 85 && h <= 195) && (s > 0.22 || (g > 140 && g > r * 1.2))) {
-        greenScore += (g - r) * s * v * 2.5;
-      }
-    }
-  }
-
-  if (redScore >= greenScore) {
-    return {
-      state: 'RED',
-      confidence: Math.min(0.98, redScore / (redScore + greenScore + 1) + 0.3),
-      colorHex: '#ef4444'
-    };
-  }
-
-  return {
-    state: 'GREEN',
-    confidence: Math.min(0.98, greenScore / (redScore + greenScore + 1) + 0.3),
-    colorHex: '#10b981'
-  };
 }

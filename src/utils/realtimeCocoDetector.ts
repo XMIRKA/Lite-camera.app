@@ -389,6 +389,8 @@ class RealtimeNeuralVisionEngine {
   private lastPhotometryTime: number = 0;
   private lastSmokeTime: number = 0;
   public isEnforcementActive: boolean = true;
+  public hasEventChanges: boolean = false;
+  public hasElementChanges: boolean = false;
 
   private calibration: CameraCalibrationParams = {
     roadLengthMeters: 68.0,
@@ -446,11 +448,50 @@ class RealtimeNeuralVisionEngine {
   public addCustomDrawnTrafficLight(
     bbox: { x: number; y: number; w: number; h: number },
     direction: 'MAIN_DIRECTION' | 'CROSS_DIRECTION' | 'LEFT_TURN_PHASE' | 'PEDESTRIAN_PHASE' = 'MAIN_DIRECTION',
-    isPedestrian: boolean = false
+    isPedestrian: boolean = false,
+    videoOrCanvas?: HTMLVideoElement | HTMLCanvasElement | CanvasRenderingContext2D | null
   ): RoadInfrastructureElement {
-    const id = `sig_accent_${Date.now().toString().slice(-4)}`;
+    const uniqueSuffix = `${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const id = `sig_accent_${uniqueSuffix}`;
     const type: RoadElementType = isPedestrian ? 'traffic_light_pedestrian' : 'traffic_light_auto';
-    const name = `Акцент-светофор #${this.roadElements.filter(e => e.type === type).length + 1} (Выделен)`;
+    
+    const existingCount = this.roadElements.filter(e => e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian' || e.isAccent).length;
+    let roleLabel = 'Основной';
+    if (isPedestrian) {
+      roleLabel = 'Пешеходный';
+    } else if (existingCount === 0) {
+      roleLabel = 'Основной';
+    } else if (existingCount === 1) {
+      roleLabel = 'Дублёр';
+    } else if (existingCount === 2) {
+      roleLabel = 'Поперечный';
+    } else if (existingCount === 3) {
+      roleLabel = 'Стрелка';
+    } else {
+      roleLabel = `Секция ${existingCount + 1}`;
+    }
+
+    const name = isPedestrian
+      ? `Пеш-светофор #${existingCount + 1}`
+      : `Светофор #${existingCount + 1} (${roleLabel})`;
+
+    let initialState: 'RED' | 'YELLOW' | 'GREEN' = 'RED';
+    let initialColorHex = '#ef4444';
+    let initialLampValues = { red: 80, yellow: 10, green: 10 };
+
+    if (videoOrCanvas) {
+      if (isPedestrian) {
+        const pedChroma = analyzePedestrianTrafficLight(videoOrCanvas, bbox);
+        initialState = pedChroma.state;
+        initialColorHex = pedChroma.colorHex;
+        initialLampValues = { red: pedChroma.state === 'RED' ? 85 : 15, yellow: 0, green: pedChroma.state === 'GREEN' ? 85 : 15 };
+      } else {
+        const chroma = analyzeSingleTrafficLight(videoOrCanvas, bbox);
+        initialState = chroma.state;
+        initialColorHex = chroma.colorHex;
+        initialLampValues = chroma.lampValues;
+      }
+    }
 
     const newElem: RoadInfrastructureElement = {
       id,
@@ -458,22 +499,90 @@ class RealtimeNeuralVisionEngine {
       name,
       x: Math.max(0.01, Math.min(0.95, parseFloat(bbox.x.toFixed(3)))),
       y: Math.max(0.01, Math.min(0.95, parseFloat(bbox.y.toFixed(3)))),
-      w: Math.max(0.02, Math.min(0.35, parseFloat(bbox.w.toFixed(3)))),
-      h: Math.max(0.03, Math.min(0.45, parseFloat(bbox.h.toFixed(3)))),
+      w: Math.max(0.015, Math.min(0.35, parseFloat(bbox.w.toFixed(3)))),
+      h: Math.max(0.02, Math.min(0.45, parseFloat(bbox.h.toFixed(3)))),
       direction,
-      state: 'GREEN',
+      state: initialState,
       manualOverride: 'AUTO',
       confidence: 0.98,
-      colorHex: '#10b981',
+      colorHex: initialColorHex,
       isAccent: true,
-      lampValues: { red: 10, yellow: 5, green: 70 },
+      lampValues: initialLampValues,
       activeViolationsCount: 0,
       enabled: true
     };
 
-    // Give this newly drawn traffic light top priority
-    this.roadElements.unshift(newElem);
+    // Add to road elements list and mark changes
+    this.roadElements.push(newElem);
+    this.hasElementChanges = true;
     return newElem;
+  }
+
+  /**
+   * Run optical photometry analysis across all traffic lights on demand
+   */
+  public updateOpticalPhotometry(videoOrCanvas?: HTMLVideoElement | HTMLCanvasElement | CanvasRenderingContext2D | null): void {
+    const source = videoOrCanvas || this.inferCanvas;
+    if (!source) return;
+
+    this.roadElements.forEach(elem => {
+      if (!elem.enabled) return;
+
+      if (elem.type === 'traffic_light_auto' || (elem.isAccent && elem.type !== 'traffic_light_pedestrian')) {
+        const chroma = analyzeSingleTrafficLight(
+          source,
+          { x: elem.x, y: elem.y, w: elem.w, h: elem.h },
+          480,
+          270,
+          elem.state !== 'OFF' ? elem.state : undefined
+        );
+
+        const stable = getStableSignalState(elem.id, chroma.state, 2);
+        const effectiveState = elem.manualOverride !== 'AUTO' ? elem.manualOverride : stable.state;
+        const newColorHex = effectiveState === 'RED' ? '#ef4444' : effectiveState === 'YELLOW' ? '#f59e0b' : '#10b981';
+
+        if (elem.state !== effectiveState || elem.colorHex !== newColorHex) {
+          this.hasElementChanges = true;
+        }
+
+        elem.state = effectiveState;
+        elem.colorHex = newColorHex;
+        elem.confidence = chroma.confidence;
+        elem.lampValues = chroma.lampValues;
+      } else if (elem.type === 'traffic_light_pedestrian') {
+        const pedChroma = analyzePedestrianTrafficLight(
+          source,
+          { x: elem.x, y: elem.y, w: elem.w, h: elem.h },
+          480,
+          270
+        );
+
+        const stable = getStableSignalState(elem.id, pedChroma.state, 2);
+        const effectiveState = elem.manualOverride !== 'AUTO' ? elem.manualOverride : stable.state;
+        const newColorHex = effectiveState === 'RED' ? '#ef4444' : '#10b981';
+
+        if (elem.state !== effectiveState || elem.colorHex !== newColorHex) {
+          this.hasElementChanges = true;
+        }
+
+        elem.state = effectiveState;
+        elem.colorHex = newColorHex;
+        elem.confidence = pedChroma.confidence;
+        elem.lampValues = {
+          red: effectiveState === 'RED' ? 85 : 15,
+          yellow: 0,
+          green: effectiveState === 'GREEN' ? 85 : 15
+        };
+      }
+    });
+  }
+
+  public hasRoadElementUpdates(): boolean {
+    if (this.hasElementChanges) {
+      this.hasElementChanges = false;
+      return true;
+    }
+    return false;
   }
 
   public addRoadElement(type: RoadElementType, x: number = 0.5, y: number = 0.5): RoadInfrastructureElement {
@@ -682,10 +791,17 @@ class RealtimeNeuralVisionEngine {
   }
 
   public setSignalOverride(id: number, override: 'AUTO' | 'RED' | 'YELLOW' | 'GREEN'): void {
-    const sigs = this.roadElements.filter(e => e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian');
-    if (sigs[id - 1]) {
-      sigs[id - 1].manualOverride = override;
-    }
+    // Apply override to all traffic light elements so toolbar buttons & auto-cycle control custom ROIs as well
+    this.roadElements.forEach(e => {
+      if (e.type === 'traffic_light_auto' || e.type === 'traffic_light_pedestrian' || e.isAccent) {
+        e.manualOverride = override;
+        if (override !== 'AUTO') {
+          e.state = override;
+          e.colorHex = override === 'RED' ? '#ef4444' : override === 'YELLOW' ? '#f59e0b' : '#10b981';
+        }
+      }
+    });
+    this.hasElementChanges = true;
   }
 
   /**
@@ -1118,12 +1234,16 @@ class RealtimeNeuralVisionEngine {
 
   public updateInterpolation(): void {
     if (this.isPaused) return;
-    const smoothFactor = 0.80;
+    const smoothFactor = 0.85;
     for (const track of this.activeTracks.values()) {
-      if (track.missedFrames > 0 && track.isMoving) {
-        track.targetX += track.vx * 0.016;
-        track.targetY += track.vy * 0.016;
+      if (track.missedFrames > 0) {
+        // Zero drift on missed frames: boxes stay firmly anchored to the object without floating away
+        track.vx = 0;
+        track.vy = 0;
       }
+      track.targetX = Math.max(0.01, Math.min(0.95, track.targetX));
+      track.targetY = Math.max(0.01, Math.min(0.95, track.targetY));
+
       track.renderX += (track.targetX - track.renderX) * smoothFactor;
       track.renderY += (track.targetY - track.renderY) * smoothFactor;
       track.renderW += (track.targetW - track.renderW) * smoothFactor;
@@ -1147,44 +1267,85 @@ class RealtimeNeuralVisionEngine {
     const currentVideoTime = video.currentTime;
 
     try {
+      let isEvening = false;
       if (this.inferCtx) {
+        this.inferCtx.filter = 'none';
         this.inferCtx.drawImage(video, 0, 0, 480, 270);
+
+        // Fast brightness test on sample pixels
+        try {
+          const sampleData = this.inferCtx.getImageData(120, 70, 240, 130).data;
+          let sampleLumSum = 0;
+          const step = Math.floor(sampleData.length / 80);
+          let count = 0;
+          for (let p = 0; p < sampleData.length; p += step * 4) {
+            sampleLumSum += (0.299 * sampleData[p] + 0.587 * sampleData[p + 1] + 0.114 * sampleData[p + 2]);
+            count++;
+          }
+          const avgLum = count > 0 ? sampleLumSum / count : 120;
+          isEvening = avgLum < 85;
+        } catch {
+          isEvening = false;
+        }
+
+        // Night / evening gentle contour enhancement without headlight blowout
+        if (isEvening) {
+          this.inferCtx.filter = 'contrast(1.15) brightness(1.10)';
+          this.inferCtx.drawImage(video, 0, 0, 480, 270);
+          this.inferCtx.filter = 'none';
+        }
       }
       
-      const effConf = Math.max(0.24, Math.min(0.85, confThreshold));
+      // Robust confidence threshold: never drop below 0.28 to prevent noisy headlight/reflection boxes
+      const effConf = isEvening ? Math.max(0.28, confThreshold * 0.90) : Math.max(0.28, Math.min(0.85, confThreshold));
       const rawPredictions = await this.model.detect(this.inferCanvas, 20, effConf);
 
       // 1. Dynamic Optical Photometry on ALL Traffic Lights (Auto, Pedestrian & Accented Drawn ROIs)
-      if (this.inferCtx && (now - this.lastPhotometryTime > 280)) {
+      // Uses native video sampling with inferCanvas fallback for high chromatic fidelity
+      if (now - this.lastPhotometryTime > 380) {
         this.lastPhotometryTime = now;
         this.roadElements.forEach(elem => {
           if (!elem.enabled) return;
 
           if (elem.type === 'traffic_light_auto' || (elem.isAccent && elem.type !== 'traffic_light_pedestrian')) {
-            const chroma = analyzeSingleTrafficLight(this.inferCtx!, {
-              x: elem.x,
-              y: elem.y,
-              w: elem.w,
-              h: elem.h
-            }, 480, 270);
+            const chroma = analyzeSingleTrafficLight(
+              video && video.readyState >= 2 ? video : this.inferCanvas,
+              { x: elem.x, y: elem.y, w: elem.w, h: elem.h },
+              480,
+              270,
+              elem.state !== 'OFF' ? elem.state : 'RED'
+            );
 
-            const stable = getStableSignalState(parseInt(elem.id.replace(/\D/g, '') || '1', 10), chroma.state, 6);
+            const stable = getStableSignalState(elem.id, chroma.state, 2);
             const effectiveState = elem.manualOverride !== 'AUTO' ? elem.manualOverride : stable.state;
+            const newColorHex = effectiveState === 'RED' ? '#ef4444' : effectiveState === 'YELLOW' ? '#f59e0b' : '#10b981';
+            
+            if (elem.state !== effectiveState || elem.colorHex !== newColorHex) {
+              this.hasElementChanges = true;
+            }
+
             elem.state = effectiveState;
-            elem.colorHex = effectiveState === 'RED' ? '#ef4444' : effectiveState === 'YELLOW' ? '#f59e0b' : '#10b981';
+            elem.colorHex = newColorHex;
             elem.confidence = chroma.confidence;
             elem.lampValues = chroma.lampValues;
           } else if (elem.type === 'traffic_light_pedestrian') {
-            const pedChroma = analyzePedestrianTrafficLight(this.inferCtx!, {
-              x: elem.x,
-              y: elem.y,
-              w: elem.w,
-              h: elem.h
-            }, 480, 270);
+            const pedChroma = analyzePedestrianTrafficLight(
+              video && video.readyState >= 2 ? video : this.inferCanvas,
+              { x: elem.x, y: elem.y, w: elem.w, h: elem.h },
+              480,
+              270
+            );
 
-            const effectiveState = elem.manualOverride !== 'AUTO' ? elem.manualOverride : pedChroma.state;
+            const stable = getStableSignalState(elem.id, pedChroma.state, 2);
+            const effectiveState = elem.manualOverride !== 'AUTO' ? elem.manualOverride : stable.state;
+            const newColorHex = effectiveState === 'RED' ? '#ef4444' : '#10b981';
+
+            if (elem.state !== effectiveState || elem.colorHex !== newColorHex) {
+              this.hasElementChanges = true;
+            }
+
             elem.state = effectiveState;
-            elem.colorHex = effectiveState === 'RED' ? '#ef4444' : '#10b981';
+            elem.colorHex = newColorHex;
             elem.confidence = pedChroma.confidence;
             elem.lampValues = {
               red: effectiveState === 'RED' ? 85 : 15,
@@ -1457,21 +1618,35 @@ class RealtimeNeuralVisionEngine {
           }
 
           const screenDist = Math.hypot(nx - track.x, ny - track.y);
-          const newVx = (nx - track.targetX) / dt;
-          const newVy = (ny - track.targetY) / dt;
-          track.vx = track.vx * 0.50 + newVx * 0.50;
-          track.vy = track.vy * 0.50 + newVy * 0.50;
+          const maxSpeed = 0.12; // Maximum 12% of screen per second
+          const rawVx = (nx - track.targetX) / dt;
+          const rawVy = (ny - track.targetY) / dt;
+          const clampedVx = Math.max(-maxSpeed, Math.min(maxSpeed, rawVx));
+          const clampedVy = Math.max(-maxSpeed, Math.min(maxSpeed, rawVy));
+          track.vx = track.vx * 0.40 + clampedVx * 0.60;
+          track.vy = track.vy * 0.40 + clampedVy * 0.60;
 
-          // Zero-lag immediate target tracking with responsive visual lock
-          track.targetX = nx;
-          track.targetY = ny;
-          track.targetW = nw;
-          track.targetH = nh;
-          if (Math.hypot(track.renderX - nx, track.renderY - ny) > 0.08) {
-            track.renderX = nx;
-            track.renderY = ny;
-            track.renderW = nw;
-            track.renderH = nh;
+          // Adaptive anti-jitter bounding box filtering
+          const isStillVehicle = !track.isMoving || track.speedKmh < 4.0;
+          if (isStillVehicle) {
+            // High inertia for stationary/slow vehicles: completely prevents jitter/drifting
+            track.targetX = track.targetX * 0.70 + nx * 0.30;
+            track.targetY = track.targetY * 0.70 + ny * 0.30;
+            track.targetW = track.targetW * 0.70 + nw * 0.30;
+            track.targetH = track.targetH * 0.70 + nh * 0.30;
+          } else {
+            // Responsive tracking for moving vehicles
+            track.targetX = track.targetX * 0.25 + nx * 0.75;
+            track.targetY = track.targetY * 0.25 + ny * 0.75;
+            track.targetW = track.targetW * 0.35 + nw * 0.65;
+            track.targetH = track.targetH * 0.35 + nh * 0.65;
+          }
+
+          if (Math.hypot(track.renderX - nx, track.renderY - ny) > 0.12) {
+            track.renderX = track.targetX;
+            track.renderY = track.targetY;
+            track.renderW = track.targetW;
+            track.renderH = track.targetH;
           }
 
           if (!track.classHistory) track.classHistory = [];
@@ -1805,8 +1980,16 @@ class RealtimeNeuralVisionEngine {
           }
 
           if (track.isMoving) {
-            track.trail.push(wheelPoint);
-            if (track.trail.length > 14) track.trail.shift();
+            const lastPt = track.trail.length > 0 ? track.trail[track.trail.length - 1] : null;
+            if (!lastPt) {
+              track.trail.push(wheelPoint);
+            } else {
+              const jump = Math.hypot(wheelPoint.x - lastPt.x, wheelPoint.y - lastPt.y);
+              if (jump >= 0.005 && jump < 0.06) {
+                track.trail.push(wheelPoint);
+                if (track.trail.length > 12) track.trail.shift();
+              }
+            }
           }
         }
       };
@@ -1867,10 +2050,10 @@ class RealtimeNeuralVisionEngine {
       for (const [id, track] of this.activeTracks.entries()) {
         if (!matchedTrackIds.has(id)) {
           track.missedFrames++;
-          track.targetX += track.vx * 0.05;
-          track.targetY += track.vy * 0.05;
+          track.vx *= 0.65;
+          track.vy *= 0.65;
 
-          if (!this.isPaused && (track.missedFrames > 28 || (now - track.lastSeen > 3200))) {
+          if (!this.isPaused && (track.missedFrames > 6 || (now - track.lastSeen > 650))) {
             this.activeTracks.delete(id);
           }
         }
@@ -2026,7 +2209,16 @@ class RealtimeNeuralVisionEngine {
     );
     if (!isDuplicate) {
       this.rawEvents.push(event);
+      this.hasEventChanges = true;
     }
+  }
+
+  public hasEventUpdates(): boolean {
+    if (this.hasEventChanges) {
+      this.hasEventChanges = false;
+      return true;
+    }
+    return false;
   }
 
   public getRawEvents(): TrafficEvent[] {
@@ -2040,6 +2232,7 @@ class RealtimeNeuralVisionEngine {
   public clearAllEvents(): void {
     this.rawEvents = [];
     this.collisionLog = [];
+    this.hasEventChanges = true;
     this.roadElements.forEach(e => { e.activeViolationsCount = 0; });
     this.activeTracks.forEach(t => {
       t.hasCrossedSolidLine = false;

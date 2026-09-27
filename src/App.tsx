@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { Header } from './components/Header';
 import { LiveDemo } from './components/LiveDemo';
+import { EDASection } from './components/EDASection';
+import { ApproachSection } from './components/ApproachSection';
+import { TechnicalReport } from './components/TechnicalReport';
+import { EvaluationPlayground } from './components/EvaluationPlayground';
+import { RepositoryHub } from './components/RepositoryHub';
 import { TeamSection } from './components/TeamSection';
 
 export default function App() {
@@ -22,6 +27,21 @@ export default function App() {
         <div className={activeTab === 'demo' ? 'block' : 'hidden'}>
           <LiveDemo lang={lang} />
         </div>
+        <div className={activeTab === 'eda' ? 'block' : 'hidden'}>
+          <EDASection lang={lang} />
+        </div>
+        <div className={activeTab === 'approach' ? 'block' : 'hidden'}>
+          <ApproachSection lang={lang} />
+        </div>
+        <div className={activeTab === 'report' ? 'block' : 'hidden'}>
+          <TechnicalReport lang={lang} />
+        </div>
+        <div className={activeTab === 'evaluation' ? 'block' : 'hidden'}>
+          <EvaluationPlayground lang={lang} />
+        </div>
+        <div className={activeTab === 'repo' ? 'block' : 'hidden'}>
+          <RepositoryHub lang={lang} />
+        </div>
         <div className={activeTab === 'team' ? 'block' : 'hidden'}>
           <TeamSection lang={lang} />
         </div>
@@ -32,7 +52,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-            <span>VisionForce • YOLOv10 & DeepSORT Traffic Surveillance</span>
+            <span>VisionForce • YOLOv8 + ByteTrack + OpenCV Traffic Surveillance</span>
           </div>
           <div>
             Team: Alisherov Mirkamol (Lead) • Normatov Bekzod • Muzaffar Solixojaev
@@ -42,3 +62,4 @@ export default function App() {
     </div>
   );
 }
+
