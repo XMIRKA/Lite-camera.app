@@ -98,7 +98,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Пересечение сплошной линии разметки 1.1';
     labelEn = 'Solid Line Crossing (Marking 1.1)';
     codeArticle = 'ст. 128 КоАО РУз';
-    fineUzs = '170 000 сум';
+    fineUzs = '220 000 сум';
     fineBrv = '0.5 БРВ';
     riskBadge = 'Разметка 1.1';
     badgeColor = 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40';
@@ -107,7 +107,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Проезд на запрещающий сигнал (Красный)';
     labelEn = 'Red Light Violation';
     codeArticle = 'ст. 128-4 КоАО РУз';
-    fineUzs = '680 000 сум';
+    fineUzs = '880 000 сум';
     fineBrv = '2.0 БРВ';
     riskBadge = 'КРАСНЫЙ СИГНАЛ';
     badgeColor = 'bg-red-500/20 text-red-300 border-red-500/40';
@@ -115,9 +115,9 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
   } else if (evt.label === 'stop_line') {
     labelRu = 'Выезд за стоп-линию на запрещающий сигнал';
     labelEn = 'Stop Line Crossing';
-    codeArticle = 'ст. 128 КоАО РУз';
-    fineUzs = '170 000 сум';
-    fineBrv = '0.5 БРВ';
+    codeArticle = 'ст. 128-4 КоАО РУз';
+    fineUzs = '880 000 сум';
+    fineBrv = '2.0 БРВ';
     riskBadge = 'Стоп-линия 1.12';
     badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
     speedKmh = 8.4;
@@ -125,7 +125,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Пешеход вне пешеходного перехода';
     labelEn = 'Jaywalking';
     codeArticle = 'ст. 138 КоАО РУз';
-    fineUzs = '115 000 сум';
+    fineUzs = '146 667 сум';
     fineBrv = '0.33 БРВ';
     riskBadge = 'Пешеход на ПЧ';
     badgeColor = 'bg-amber-500/20 text-amber-300 border-amber-500/40';
@@ -144,7 +144,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Остановка на проезжей части > 10 секунд';
     labelEn = 'Illegal Stopping > 10s';
     codeArticle = 'ст. 128-8 КоАО РУз';
-    fineUzs = '340 000 сум';
+    fineUzs = '440 000 сум';
     fineBrv = '1.0 БРВ';
     riskBadge = 'Помеха движению';
     badgeColor = 'bg-orange-500/20 text-orange-300 border-orange-500/40';
@@ -154,7 +154,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Затор / Блокировка перекрестка';
     labelEn = 'Intersection Congestion';
     codeArticle = 'ст. 128-8 КоАО РУз';
-    fineUzs = '340 000 сум';
+    fineUzs = '440 000 сум';
     fineBrv = '1.0 БРВ';
     riskBadge = 'LOS F (Затор)';
     badgeColor = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40';
@@ -164,7 +164,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Превышение установленной скорости движения';
     labelEn = 'Speeding Violation';
     codeArticle = 'ст. 128-3 КоАО РУз';
-    fineUzs = '340 000 сум';
+    fineUzs = '440 000 сум';
     fineBrv = '1.0 БРВ';
     riskBadge = 'РАДАР ФИКСАЦИЯ';
     badgeColor = 'bg-yellow-500/20 text-yellow-300 border-yellow-500/40';
@@ -173,7 +173,7 @@ export const getViolationDetails = (evt: TrafficEvent, index: number = 1): Viola
     labelRu = 'Дорожно-транспортное происшествие (ДТП)';
     labelEn = 'Traffic Collision';
     codeArticle = 'ст. 133 КоАО РУз';
-    fineUzs = '1 700 000 сум';
+    fineUzs = '2 200 000 сум';
     fineBrv = '5.0 БРВ';
     riskBadge = 'ДТП ФИКСАЦИЯ';
     badgeColor = 'bg-red-600/30 text-red-200 border-red-500';

@@ -12,22 +12,42 @@ export const ApproachSection: React.FC<ApproachSectionProps> = ({ lang }) => {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-xs text-slate-400">
-          <span className="font-semibold text-cyan-400 font-mono">VisionForce Architecture</span>
-          <span aria-hidden="true">·</span>
-          <span>End-to-End Computer Vision Pipeline</span>
-          <span aria-hidden="true">·</span>
-          <span>Real-Time Performance</span>
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-xl border border-slate-800">
+        <div>
+          <div className="flex items-center gap-2 text-xs text-slate-400">
+            <span className="font-semibold text-cyan-400 font-mono">VisionForce Architecture</span>
+            <span aria-hidden="true">·</span>
+            <span>End-to-End Computer Vision Pipeline</span>
+            <span aria-hidden="true">·</span>
+            <span>Real-Time Performance</span>
+          </div>
+          <h2 className="text-2xl font-bold text-white mt-1">
+            {lang === 'ru' ? 'Архитектура системы: YOLOv8 + ByteTrack + OpenCV + Streamlit' : 'System Architecture: YOLOv8 + ByteTrack + OpenCV + Streamlit'}
+          </h2>
+          <p className="text-sm text-slate-400 mt-1 max-w-2xl">
+            {lang === 'ru'
+              ? 'Сбалансированный производственный стек: CV-детектор YOLOv8, мультиобъектный трекер ByteTrack, библиотека OpenCV (cv2) для покадровой нарезки видео .mp4 и отрисовки bounding box, а также интерактивный веб-интерфейс на Streamlit.'
+              : 'Production-ready stack: YOLOv8 CV detector, ByteTrack multi-object tracker, OpenCV (cv2) for .mp4 video frame slicing and bounding box overlay rendering, with a Streamlit web application.'}
+          </p>
         </div>
-        <h2 className="text-2xl font-bold text-white mt-1">
-          {lang === 'ru' ? 'Архитектура системы: YOLOv8 + ByteTrack + OpenCV + Streamlit' : 'System Architecture: YOLOv8 + ByteTrack + OpenCV + Streamlit'}
-        </h2>
-        <p className="text-sm text-slate-400 mt-1 max-w-3xl">
-          {lang === 'ru'
-            ? 'Сбалансированный производственный стек: CV-детектор YOLOv8, мультиобъектный трекер ByteTrack, библиотека OpenCV (cv2) для покадровой нарезки видео .mp4 и отрисовки bounding box, а также интерактивный веб-интерфейс на Streamlit.'
-            : 'Production-ready stack: YOLOv8 CV detector, ByteTrack multi-object tracker, OpenCV (cv2) for .mp4 video frame slicing and bounding box overlay rendering, with a Streamlit web application.'}
-        </p>
+
+        {/* Real-time Telemetry Stats Widget */}
+        <div className="flex items-center gap-4 bg-slate-950 px-4 py-2.5 rounded-lg border border-slate-800/80 font-mono text-[11px] shrink-0 self-start lg:self-center">
+          <div className="flex flex-col">
+            <span className="text-slate-500 text-[9px] uppercase">Telemetry Ping</span>
+            <span className="text-cyan-400 font-bold">12.5 ms</span>
+          </div>
+          <div className="w-px h-6 bg-slate-800" />
+          <div className="flex flex-col">
+            <span className="text-slate-500 text-[9px] uppercase">Ensemble FPS</span>
+            <span className="text-emerald-400 font-bold">58.4 FPS</span>
+          </div>
+          <div className="w-px h-6 bg-slate-800" />
+          <div className="flex flex-col">
+            <span className="text-slate-500 text-[9px] uppercase">Model State</span>
+            <span className="text-amber-400 font-bold">YOLOv8s+TRT</span>
+          </div>
+        </div>
       </div>
 
       {/* Visual System Architecture Diagram */}

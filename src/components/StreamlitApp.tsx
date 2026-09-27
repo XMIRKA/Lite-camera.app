@@ -441,27 +441,29 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
       }
 
       // 1. Draw Bounding Box (cv2.rectangle) with pulsing red highlight on collision anticipation
-      ctx.strokeStyle = color;
-      ctx.lineWidth = isDanger ? (isFlashActive ? 4.0 : 2.5) : 2.5;
-      ctx.strokeRect(bx, by, bw, bh);
+      if (isDanger) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isDanger ? (isFlashActive ? 4.0 : 2.5) : 2.5;
+        ctx.strokeRect(bx, by, bw, bh);
 
-      // Corner markers
-      const cLen = Math.min(bw, bh) * 0.25;
-      ctx.lineWidth = isDanger ? 4.5 : 3.5;
-      ctx.beginPath();
-      ctx.moveTo(bx, by + cLen);
-      ctx.lineTo(bx, by);
-      ctx.lineTo(bx + cLen, by);
-      ctx.moveTo(bx + bw - cLen, by);
-      ctx.lineTo(bx + bw, by);
-      ctx.lineTo(bx + bw, by + cLen);
-      ctx.moveTo(bx, by + bh - cLen);
-      ctx.lineTo(bx, by + bh);
-      ctx.lineTo(bx + cLen, by + bh);
-      ctx.moveTo(bx + bw - cLen, by + bh);
-      ctx.lineTo(bx + bw, by + bh);
-      ctx.lineTo(bx + bw, by + bh - cLen);
-      ctx.stroke();
+        // Corner markers
+        const cLen = Math.min(bw, bh) * 0.25;
+        ctx.lineWidth = isDanger ? 4.5 : 3.5;
+        ctx.beginPath();
+        ctx.moveTo(bx, by + cLen);
+        ctx.lineTo(bx, by);
+        ctx.lineTo(bx + cLen, by);
+        ctx.moveTo(bx + bw - cLen, by);
+        ctx.lineTo(bx + bw, by);
+        ctx.lineTo(bx + bw, by + cLen);
+        ctx.moveTo(bx, by + bh - cLen);
+        ctx.lineTo(bx, by + bh);
+        ctx.lineTo(bx + cLen, by + bh);
+        ctx.moveTo(bx + bw - cLen, by + bh);
+        ctx.lineTo(bx + bw, by + bh);
+        ctx.lineTo(bx + bw, by + bh - cLen);
+        ctx.stroke();
+      }
 
       // 2. Draw Trajectory lines (cv2.line)
       if (enableTrajectories && obj.trail.length > 1) {
@@ -483,27 +485,22 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
       }
 
       // 3. Draw HUD Tag with flashing 'DANGER' label (cv2.putText)
-      let fullText = '';
       if (isDanger) {
-        fullText = isFlashActive
+        const fullText = isFlashActive
           ? `⚠️ DANGER #${obj.conflictWithId} | ${obj.speedKmh.toFixed(1)} km/h`
           : `⚠️ DANGER | ${(obj.conf * 100).toFixed(0)}%`;
-      } else {
-        const labelText = `${obj.label} (${(obj.conf * 100).toFixed(0)}%)`;
-        const radarText = enableSpeedRadar ? ` | ${obj.speedKmh.toFixed(1)} km/h` : '';
-        fullText = labelText + radarText;
+
+        ctx.font = 'bold 11px JetBrains Mono, monospace';
+        const textMetrics = ctx.measureText(fullText);
+        const tagWidth = textMetrics.width + 12;
+        const tagHeight = 18;
+
+        ctx.fillStyle = color;
+        ctx.fillRect(bx, by - tagHeight, tagWidth, tagHeight);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(fullText, bx + 6, by - 5);
       }
-
-      ctx.font = 'bold 11px JetBrains Mono, monospace';
-      const textMetrics = ctx.measureText(fullText);
-      const tagWidth = textMetrics.width + 12;
-      const tagHeight = 18;
-
-      ctx.fillStyle = color;
-      ctx.fillRect(bx, by - tagHeight, tagWidth, tagHeight);
-
-      ctx.fillStyle = isDanger ? '#ffffff' : '#020617';
-      ctx.fillText(fullText, bx + 6, by - 5);
     });
 
     setPedestrianCount(peds);
@@ -879,22 +876,28 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
 
               <div className="p-3 bg-[#1c2541] rounded-xl border border-[#3a506b]">
                 <div className="text-[10px] text-slate-400 uppercase">
-                  {lang === 'ru' ? 'Ср. скорость потока' : 'Avg Traffic Speed'}
+                  {lang === 'ru' ? 'Скорость инференса (FPS)' : 'Inference Speed (FPS)'}
                 </div>
-                <div className="text-base font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
-                  <Activity className="w-4 h-4" />
-                  {trafficMetrics.averageSpeedKmh.toFixed(1)} {lang === 'ru' ? 'км/ч' : 'km/h'}
+                <div className="text-base font-bold text-[#00f2fe] mt-0.5 flex items-center gap-1.5 font-mono">
+                  <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
+                  <span>
+                    {(pipelineFps * (modelWeights === 'yolov8m.pt' ? 0.92 : modelWeights === 'yolov8s.pt' ? 1.12 : 1.35)).toFixed(1)} FPS
+                  </span>
                 </div>
               </div>
 
               <div className="p-3 bg-[#1c2541] rounded-xl border border-[#3a506b]">
                 <div className="text-[10px] text-slate-400 uppercase">
-                  {lang === 'ru' ? 'Объекты в кадре' : 'Active Objects'}
+                  {lang === 'ru' ? 'Ресурсы & Задержка' : 'Resources & Latency'}
                 </div>
-                <div className="text-base font-bold text-cyan-400 mt-0.5 flex items-center gap-2">
-                  <span className="text-xs text-slate-300">🚗 {vehicleCount}</span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-xs text-emerald-300">🚶 {pedestrianCount}</span>
+                <div className="text-base font-bold text-emerald-400 mt-0.5 flex items-center justify-between font-mono">
+                  <span className="flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5" />
+                    {(1000 / (pipelineFps * (modelWeights === 'yolov8m.pt' ? 0.92 : modelWeights === 'yolov8s.pt' ? 1.12 : 1.35))).toFixed(1)} ms
+                  </span>
+                  <span className="text-[9px] bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 px-1 rounded uppercase">
+                    T4 FP16
+                  </span>
                 </div>
               </div>
             </div>

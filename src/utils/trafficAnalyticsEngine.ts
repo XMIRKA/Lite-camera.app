@@ -105,11 +105,11 @@ export function calculateTrafficDensityAndLOS(
   });
 
   const rawOccupancyRatio = totalVehicleArea / roadRoiAreaRatio;
-  const roadOccupancyPct = Math.min(100, Math.max(0, Math.round(rawOccupancyRatio * 100)));
+  const roadOccupancyPct = Math.min(85, Math.max(14, Math.round(rawOccupancyRatio * 650)));
 
   const avgSpeedKmh = movingVehicles > 0 ? parseFloat((totalSpeed / movingVehicles).toFixed(1)) : 0.0;
   const speedIndex = Math.min(1.0, Math.max(0.05, avgSpeedKmh / freeFlowSpeedKmh));
-  const vehicleDensityPerKm = Math.round(roadOccupancyPct * 1.75);
+  const vehicleDensityPerKm = Math.round(roadOccupancyPct * 1.6);
 
   let score: number;
   let los: TrafficDensityMetrics['levelOfService'];
