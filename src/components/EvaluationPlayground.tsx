@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { calculateCompetitionScores, EvaluationResult } from '../utils/evaluation';
-import { SAMPLE_VIDEOS, OFFICIAL_CLASSES } from '../data/competitionData';
-import { ShieldAlert, Calculator, CheckCircle2, Award, Info, RefreshCw } from 'lucide-react';
+import { SAMPLE_VIDEOS } from '../data/competitionData';
+import { ShieldAlert, CheckCircle2 } from 'lucide-react';
 
 interface EvaluationPlaygroundProps {
   lang: 'en' | 'ru';
@@ -10,7 +10,6 @@ interface EvaluationPlaygroundProps {
 export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang }) => {
   const [websiteScore, setWebsiteScore] = useState<number>(0.96);
   const [codeScore, setCodeScore] = useState<number>(0.95);
-  const [activeThreshold, setActiveThreshold] = useState<number>(0.5);
 
   // Ground Truth & Preds mock for demonstration
   const gtEvents = SAMPLE_VIDEOS.flatMap(v => v.events.map(e => ({ ...e, video: v.filename })));
@@ -34,7 +33,7 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="font-semibold text-cyan-400 font-mono">evaluate.py Compliance Engine</span>
           <span aria-hidden="true">·</span>
-          <span>Official Metric Formula Verification</span>
+          <span>{lang === 'ru' ? 'Верификация официальных формул метрик' : 'Official Metric Formula Verification'}</span>
           <span aria-hidden="true">·</span>
           <span>Score A, Score B &amp; Elimination Rank</span>
         </div>
@@ -69,7 +68,9 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
 
           {/* Model Score M */}
           <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1">
-            <span className="text-xs font-mono text-slate-400 block">MODEL SCORE M (60%)</span>
+            <span className="text-xs font-mono text-slate-400 block">
+              {lang === 'ru' ? 'ОЦЕНКА МОДЕЛИ M (60%)' : 'MODEL SCORE M (60%)'}
+            </span>
             <div className="text-3xl font-mono font-bold text-cyan-300">
               {evalResult.modelScoreM.toFixed(3)}
             </div>
@@ -80,18 +81,22 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
 
           {/* Part A Score */}
           <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1">
-            <span className="text-xs font-mono text-slate-400 block">PART A: EVENT DETECTION</span>
+            <span className="text-xs font-mono text-slate-400 block">
+              {lang === 'ru' ? 'ЧАСТЬ A: ДЕТЕКЦИЯ СОБЫТИЙ' : 'PART A: EVENT DETECTION'}
+            </span>
             <div className="text-3xl font-mono font-bold text-emerald-400">
               {evalResult.scoreA.toFixed(3)}
             </div>
             <span className="text-[10px] font-mono text-slate-500 block">
-              Macro F1 over τ ∈ &#123;0.3, 0.5, 0.7&#125;
+              {lang === 'ru' ? 'Macro F1 по τ ∈ {0.3, 0.5, 0.7}' : 'Macro F1 over τ ∈ {0.3, 0.5, 0.7}'}
             </span>
           </div>
 
           {/* Part B Score */}
           <div className="p-4 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1">
-            <span className="text-xs font-mono text-slate-400 block">PART B: ANTICIPATION</span>
+            <span className="text-xs font-mono text-slate-400 block">
+              {lang === 'ru' ? 'ЧАСТЬ B: ПРЕДСКАЗАНИЕ АВАРИЙ' : 'PART B: ANTICIPATION'}
+            </span>
             <div className="text-3xl font-mono font-bold text-amber-400">
               {evalResult.scoreB.toFixed(3)}
             </div>
@@ -109,15 +114,17 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              PART A: EVENT DETECTION BREAKDOWN
+              {lang === 'ru' ? 'ДЕТАЛИЗАЦИЯ ЧАСТИ A: ДЕТЕКЦИЯ СОБЫТИЙ' : 'PART A: EVENT DETECTION BREAKDOWN'}
             </h3>
             <span className="text-xs font-mono text-slate-400">
-              {evalResult.partADetails.classesEvaluated} active classes
+              {evalResult.partADetails.classesEvaluated} {lang === 'ru' ? 'активных классов' : 'active classes'}
             </span>
           </div>
 
-          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs font-mono text-slate-300">
-            Formula: \text&#123;Score&#125;_A = \frac&#123;1&#125;&#123;|C|&#125; \sum_&#123;c \in C&#125; \frac&#123;1&#125;&#123;3&#125; \sum_&#123;\tau \in &#123;0.3, 0.5, 0.7&#125;&#125; F1_c(\tau)
+          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 leading-relaxed overflow-x-auto">
+            {lang === 'ru'
+              ? 'Формула: Score_A = (1 / |C|) * Σ (1/3 * Σ F1_c(τ)) по τ ∈ {0.3, 0.5, 0.7}'
+              : 'Formula: Score_A = (1 / |C|) * Σ (1/3 * Σ F1_c(τ)) for τ ∈ {0.3, 0.5, 0.7}'}
           </div>
 
           {/* Per-class F1 Table */}
@@ -125,7 +132,7 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
             <table className="w-full text-left text-xs font-mono">
               <thead className="text-slate-500 border-b border-slate-800">
                 <tr>
-                  <th className="py-2">Class ID</th>
+                  <th className="py-2">{lang === 'ru' ? 'ID Класса' : 'Class ID'}</th>
                   <th className="py-2">F1 (0.3)</th>
                   <th className="py-2">F1 (0.5)</th>
                   <th className="py-2">F1 (0.7)</th>
@@ -152,20 +159,22 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
               <ShieldAlert className="w-4 h-4 text-amber-400" />
-              PART B: ACCIDENT ANTICIPATION BREAKDOWN
+              {lang === 'ru' ? 'ДЕТАЛИЗАЦИЯ ЧАСТИ B: ПРЕДСКАЗАНИЕ АВАРИЙ' : 'PART B: ACCIDENT ANTICIPATION BREAKDOWN'}
             </h3>
             <span className="text-xs font-mono text-cyan-400">
-              Horizon H = 5.0s, W = 10.0s
+              {lang === 'ru' ? 'Горизонт H = 5.0с, W = 10.0с' : 'Horizon H = 5.0s, W = 10.0s'}
             </span>
           </div>
 
-          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs font-mono text-slate-300">
-            Formula: \text&#123;Score&#125;_B = 0.4 \cdot \text&#123;AP&#125; + 0.4 \cdot F1_&#123;\text&#123;alarm&#125;&#125; + 0.2 \cdot \frac&#123;\text&#123;mTTA&#125;&#125;&#123;W&#125;
+          <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 leading-relaxed overflow-x-auto">
+            Formula: Score_B = 0.4·AP + 0.4·F1_alarm + 0.2·(mTTA / W)
           </div>
 
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
-              <span className="text-[11px] font-mono text-slate-400 block">CHANCE-NORMALIZED AP</span>
+              <span className="text-[10px] font-mono text-slate-400 block uppercase">
+                {lang === 'ru' ? 'НОРМИРОВАННЫЙ AP (CHANCE-NORM)' : 'CHANCE-NORMALIZED AP'}
+              </span>
               <span className="text-xl font-mono font-bold text-white mt-1 block">
                 {evalResult.partBDetails.chanceNormalizedAP.toFixed(3)}
               </span>
@@ -173,7 +182,9 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
             </div>
 
             <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
-              <span className="text-[11px] font-mono text-slate-400 block">ALARM F1 (θ = 0.50)</span>
+              <span className="text-[10px] font-mono text-slate-400 block uppercase">
+                {lang === 'ru' ? 'ALARM F1 (порог θ = 0.50)' : 'ALARM F1 (θ = 0.50)'}
+              </span>
               <span className="text-xl font-mono font-bold text-amber-300 mt-1 block">
                 {evalResult.partBDetails.f1Alarm.toFixed(3)}
               </span>
@@ -183,19 +194,27 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
             </div>
 
             <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
-              <span className="text-[11px] font-mono text-slate-400 block">MEAN TIME-TO-ACCIDENT (mTTA)</span>
-              <span className="text-xl font-mono font-bold text-emerald-400 mt-1 block">
-                {evalResult.partBDetails.meanTTA.toFixed(1)} s
+              <span className="text-[10px] font-mono text-slate-400 block uppercase">
+                {lang === 'ru' ? 'СРЕДНЕЕ ВРЕМЯ ДО АВАРИИ (mTTA)' : 'MEAN TIME-TO-ACCIDENT (mTTA)'}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">Lead time before impact</span>
+              <span className="text-xl font-mono font-bold text-emerald-400 mt-1 block">
+                {evalResult.partBDetails.meanTTA.toFixed(1)} {lang === 'ru' ? 'с' : 's'}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {lang === 'ru' ? 'Упреждающее время до удара' : 'Lead time before impact'}
+              </span>
             </div>
 
             <div className="p-3 bg-slate-950 rounded-lg border border-slate-800">
-              <span className="text-[11px] font-mono text-slate-400 block">MATCHED ACCIDENT ALARMS</span>
+              <span className="text-[10px] font-mono text-slate-400 block uppercase">
+                {lang === 'ru' ? 'СОВПАВШИЕ ТРЕВОГИ ДТП' : 'MATCHED ACCIDENT ALARMS'}
+              </span>
               <span className="text-xl font-mono font-bold text-cyan-300 mt-1 block">
                 {evalResult.partBDetails.matchedAlarmsCount} / {evalResult.partBDetails.totalAlarmsCount}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">Runs &lt; 2s merged</span>
+              <span className="text-[10px] text-slate-500 font-mono">
+                {lang === 'ru' ? 'Интервалы < 2с объединены' : 'Runs < 2s merged'}
+              </span>
             </div>
           </div>
         </div>
@@ -209,7 +228,9 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-mono">
-              <span className="text-slate-300">Website &amp; Demo Quality (Weight: 25%)</span>
+              <span className="text-slate-300">
+                {lang === 'ru' ? 'Качество веб-интерфейса и демо (Вес: 25%)' : 'Website & Demo Quality (Weight: 25%)'}
+              </span>
               <span className="text-cyan-400 font-bold">{websiteScore.toFixed(2)}</span>
             </div>
             <input
@@ -225,7 +246,9 @@ export const EvaluationPlayground: React.FC<EvaluationPlaygroundProps> = ({ lang
 
           <div className="space-y-2">
             <div className="flex justify-between text-xs font-mono">
-              <span className="text-slate-300">Code Quality &amp; Reproducibility (Weight: 15%)</span>
+              <span className="text-slate-300">
+                {lang === 'ru' ? 'Качество и воспроизводимость кода (Вес: 15%)' : 'Code Quality & Reproducibility (Weight: 15%)'}
+              </span>
               <span className="text-cyan-400 font-bold">{codeScore.toFixed(2)}</span>
             </div>
             <input

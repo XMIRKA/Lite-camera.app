@@ -1,16 +1,12 @@
-import React, { useState } from 'react';
-import { SAMPLE_VIDEOS, OFFICIAL_CLASSES } from '../data/competitionData';
+import React from 'react';
+import { SAMPLE_VIDEOS } from '../data/competitionData';
 import {
   BarChart2,
-  PieChart,
   Activity,
-  Layers,
-  Eye,
   TrendingUp,
   Compass,
   AlertCircle,
   CheckCircle2,
-  Sliders,
   Scale
 } from 'lucide-react';
 
@@ -19,28 +15,25 @@ interface EDASectionProps {
 }
 
 export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
-  const [selectedVideoIdx, setSelectedVideoIdx] = useState<number>(0);
-  const selectedVideo = SAMPLE_VIDEOS[selectedVideoIdx] || SAMPLE_VIDEOS[0];
-
   // Distribution data
   const classDistributions = [
-    { name: 'Collision (accident)', count: 4, pct: 4.8, color: '#ef4444' },
-    { name: 'Near Miss (near_miss)', count: 9, pct: 10.7, color: '#f97316' },
-    { name: 'Red Light Running', count: 14, pct: 16.7, color: '#dc2626' },
-    { name: 'Solid Line 1.1 Crossing', count: 22, pct: 26.2, color: '#8b5cf6' },
-    { name: 'Wrong-way Driving', count: 6, pct: 7.1, color: '#ea580c' },
-    { name: 'Illegal U-turn', count: 8, pct: 9.5, color: '#d97706' },
-    { name: 'Stopped Vehicle (Carriageway)', count: 11, pct: 13.1, color: '#eab308' },
-    { name: 'Pedestrian on Roadway', count: 10, pct: 11.9, color: '#10b981' }
+    { name: lang === 'ru' ? 'Столкновение (ДТП)' : 'Collision (accident)', count: 4, pct: 4.8, color: '#ef4444' },
+    { name: lang === 'ru' ? 'Опасная ситуация (near_miss)' : 'Near Miss (near_miss)', count: 9, pct: 10.7, color: '#f97316' },
+    { name: lang === 'ru' ? 'Проезд на красный' : 'Red Light Running', count: 14, pct: 16.7, color: '#dc2626' },
+    { name: lang === 'ru' ? 'Наезд на сплошную 1.1' : 'Solid Line 1.1 Crossing', count: 22, pct: 26.2, color: '#8b5cf6' },
+    { name: lang === 'ru' ? 'Встречное движение' : 'Wrong-way Driving', count: 6, pct: 7.1, color: '#ea580c' },
+    { name: lang === 'ru' ? 'Запрещенный разворот' : 'Illegal U-turn', count: 8, pct: 9.5, color: '#d97706' },
+    { name: lang === 'ru' ? 'Остановка на проезжей части' : 'Stopped Vehicle (Carriageway)', count: 11, pct: 13.1, color: '#eab308' },
+    { name: lang === 'ru' ? 'Пешеход вне зебры' : 'Pedestrian on Roadway', count: 10, pct: 11.9, color: '#10b981' }
   ];
 
   const speedProfiles = [
-    { cls: 'Passenger Car (🚗)', min: 14, avg: 42, max: 68, std: 8.4, color: '#38bdf8' },
-    { cls: 'E-Scooter / Moped (🛵)', min: 12, avg: 29, max: 58, std: 6.2, color: '#06b6d4' },
-    { cls: 'Bicycle (🚴)', min: 10, avg: 19, max: 36, std: 4.1, color: '#10b981' },
-    { cls: 'City Bus (🚌)', min: 12, avg: 31, max: 52, std: 5.7, color: '#f59e0b' },
-    { cls: 'Heavy Truck (🚛)', min: 12, avg: 34, max: 52, std: 6.1, color: '#f97316' },
-    { cls: 'Pedestrian (🚶)', min: 3.6, avg: 4.4, max: 5.4, std: 0.5, color: '#84cc16' }
+    { cls: lang === 'ru' ? 'Легковое авто (🚗)' : 'Passenger Car (🚗)', min: 14, avg: 42, max: 68, std: 8.4, color: '#38bdf8' },
+    { cls: lang === 'ru' ? 'Электросамокат (🛵)' : 'E-Scooter / Moped (🛵)', min: 12, avg: 29, max: 58, std: 6.2, color: '#06b6d4' },
+    { cls: lang === 'ru' ? 'Велосипед (🚴)' : 'Bicycle (🚴)', min: 10, avg: 19, max: 36, std: 4.1, color: '#10b981' },
+    { cls: lang === 'ru' ? 'Городской автобус (🚌)' : 'City Bus (🚌)', min: 12, avg: 31, max: 52, std: 5.7, color: '#f59e0b' },
+    { cls: lang === 'ru' ? 'Грузовик (🚛)' : 'Heavy Truck (🚛)', min: 12, avg: 34, max: 52, std: 6.1, color: '#f97316' },
+    { cls: lang === 'ru' ? 'Пешеход (🚶)' : 'Pedestrian (🚶)', min: 3.6, avg: 4.4, max: 5.4, std: 0.5, color: '#84cc16' }
   ];
 
   return (
@@ -50,9 +43,9 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span className="font-semibold text-cyan-400 font-mono">WIUT Hackathon CV 2026</span>
           <span aria-hidden="true">·</span>
-          <span>Rubric Section 3: Exploratory Data Analysis (15%)</span>
+          <span>{lang === 'ru' ? 'Секция 3: Разведочный анализ данных (15%)' : 'Rubric Section 3: Exploratory Data Analysis (15%)'}</span>
           <span aria-hidden="true">·</span>
-          <span>Findings That Shaped The Solution</span>
+          <span>{lang === 'ru' ? 'Результаты исследования' : 'Findings That Shaped The Solution'}</span>
         </div>
         <h2 className="text-2xl font-bold text-white mt-1">
           {lang === 'ru' ? 'Разведочный анализ данных (EDA) и ключевые инсайты' : 'Exploratory Data Analysis (EDA) & Data-Driven Insights'}
@@ -68,11 +61,13 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase">Analyzed Sample Feeds</span>
+            <span className="text-xs font-mono text-slate-400 uppercase">
+              {lang === 'ru' ? 'Проанализировано потоков' : 'Analyzed Sample Feeds'}
+            </span>
             <Activity className="w-4 h-4 text-cyan-400" />
           </div>
           <div className="text-2xl font-mono font-bold text-white">
-            {SAMPLE_VIDEOS.length} <span className="text-xs text-slate-400 font-normal">HD CCTV Feeds</span>
+            {SAMPLE_VIDEOS.length} <span className="text-xs text-slate-400 font-normal">{lang === 'ru' ? 'видеопотоков HD' : 'HD CCTV Feeds'}</span>
           </div>
           <p className="text-xs text-slate-400">
             {lang === 'ru' ? 'Сбалансированная выборка: утро, день, сумерки, плотный трафик и аварии.' : 'Balanced lighting: morning rush, rain, night glare, and multi-vehicle crashes.'}
@@ -81,11 +76,13 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase">Annotated Incidents</span>
+            <span className="text-xs font-mono text-slate-400 uppercase">
+              {lang === 'ru' ? 'Размечено инцидентов' : 'Annotated Incidents'}
+            </span>
             <AlertCircle className="w-4 h-4 text-rose-400" />
           </div>
           <div className="text-2xl font-mono font-bold text-white">
-            84 <span className="text-xs text-slate-400 font-normal">Ground-Truth Events</span>
+            84 <span className="text-xs text-slate-400 font-normal">{lang === 'ru' ? 'эталонных событий' : 'Ground-Truth Events'}</span>
           </div>
           <p className="text-xs text-slate-400">
             {lang === 'ru' ? '14 официальных классов нарушений и инцидентов ПДД.' : '14 official competition classes with micro-second start/end timestamps.'}
@@ -94,24 +91,28 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase">Extreme Class Imbalance</span>
+            <span className="text-xs font-mono text-slate-400 uppercase">
+              {lang === 'ru' ? 'Дисбаланс классов' : 'Extreme Class Imbalance'}
+            </span>
             <Scale className="w-4 h-4 text-amber-400" />
           </div>
           <div className="text-2xl font-mono font-bold text-white">
-            1 : 6.5 <span className="text-xs text-slate-400 font-normal">Minority vs Majority</span>
+            1 : 6.5 <span className="text-xs text-slate-400 font-normal">{lang === 'ru' ? 'соотношение классов' : 'Minority vs Majority'}</span>
           </div>
           <p className="text-xs text-slate-400">
-            {lang === 'ru' ? 'ДТП и Near Miss редки (4.8%), пересечения линий часты (26.2%).' : 'Crashes are rare (4.8%), line crossings and red-lights are frequent (42.9%).'}
+            {lang === 'ru' ? 'ДТП и Near Miss редки (4.8%), нарушения правил светофора часты (26.2%).' : 'Crashes are rare (4.8%), line crossings and red-lights are frequent (42.9%).'}
           </p>
         </div>
 
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-2">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-mono text-slate-400 uppercase">Camera Perspective Distortion</span>
+            <span className="text-xs font-mono text-slate-400 uppercase">
+              {lang === 'ru' ? 'Искажение перспективы' : 'Perspective Distortion'}
+            </span>
             <Compass className="w-4 h-4 text-emerald-400" />
           </div>
           <div className="text-2xl font-mono font-bold text-white">
-            3.8x <span className="text-xs text-slate-400 font-normal">Top vs Bottom Scale</span>
+            3.8x <span className="text-xs text-slate-400 font-normal">{lang === 'ru' ? 'разница масштабов' : 'Top vs Bottom Scale'}</span>
           </div>
           <p className="text-xs text-slate-400">
             {lang === 'ru' ? 'Компенсируется 4-точечной гомографией (Inverse Perspective Mapping).' : 'Resolved via 4-point ground homography & contact anchor projection.'}
@@ -128,7 +129,9 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
               <BarChart2 className="w-4 h-4 text-cyan-400" />
               {lang === 'ru' ? 'РАСПРЕДЕЛЕНИЕ СОБЫТИЙ ПО КЛАССАМ' : 'INCIDENT FREQUENCY BY CLASS'}
             </h3>
-            <span className="text-[11px] font-mono text-slate-400">Total N = 84 events</span>
+            <span className="text-[11px] font-mono text-slate-400">
+              {lang === 'ru' ? 'Всего N = 84 события' : 'Total N = 84 events'}
+            </span>
           </div>
 
           <div className="space-y-3 pt-2">
@@ -152,8 +155,8 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
         {/* Calibrated Speed Profiles */}
         <div className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-4">
           <div className="flex items-center justify-between">
+            <TrendingUp className="w-4 h-4 text-emerald-400" />
             <h3 className="text-sm font-bold text-white font-mono flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-emerald-400" />
               {lang === 'ru' ? 'КАЛИБРОВКА СКОРОСТНЫХ ПРОФИЛЕЙ (КМ/Ч)' : 'CALIBRATED SPEED PROFILES (KM/H)'}
             </h3>
             <span className="text-[11px] font-mono text-emerald-400 font-bold">Ground-Plane IPM</span>
@@ -163,11 +166,11 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
             <table className="w-full text-left text-xs font-mono">
               <thead>
                 <tr className="border-b border-slate-800 text-slate-400">
-                  <th className="pb-2">Class</th>
-                  <th className="pb-2">Min</th>
-                  <th className="pb-2">Avg</th>
-                  <th className="pb-2">Max</th>
-                  <th className="pb-2">Physics Range</th>
+                  <th className="pb-2">{lang === 'ru' ? 'Класс' : 'Class'}</th>
+                  <th className="pb-2">{lang === 'ru' ? 'Мин' : 'Min'}</th>
+                  <th className="pb-2">{lang === 'ru' ? 'Сред' : 'Avg'}</th>
+                  <th className="pb-2">{lang === 'ru' ? 'Макс' : 'Max'}</th>
+                  <th className="pb-2">{lang === 'ru' ? 'Диапазон' : 'Physics Range'}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/60">

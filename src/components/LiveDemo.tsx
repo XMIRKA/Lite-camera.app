@@ -1371,7 +1371,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
             
             {/* Quick Scene Presets Selector */}
             <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
-              <span className="text-slate-400 font-sans text-xs mr-1">Пресеты:</span>
+              <span className="text-slate-400 font-sans text-xs mr-1">{lang === 'ru' ? 'Пресеты:' : 'Presets:'}</span>
               <button
                 onClick={handleClearAllRoadElements}
                 className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
@@ -1379,49 +1379,49 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
-                title="Очистить все дорожные элементы с холста"
+                title={lang === 'ru' ? 'Очистить все дорожные элементы с холста' : 'Clear all road elements from canvas'}
               >
-                🧹 Чистый холст
+                {lang === 'ru' ? '🧹 Чистый холст' : '🧹 Clear Canvas'}
               </button>
               <button
-                onClick={() => handleApplyPreset('standard_intersection', 'Классический 4-полосный перекресток')}
+                onClick={() => handleApplyPreset('standard_intersection', lang === 'ru' ? 'Классический 4-полосный перекресток' : 'Standard 4-Lane Intersection')}
                 className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
                   activePreset === 'standard_intersection'
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                🚦 Перекресток 4-полосный
+                {lang === 'ru' ? '🚦 Перекресток 4-полосный' : '🚦 4-Lane Intersection'}
               </button>
               <button
-                onClick={() => handleApplyPreset('t_junction_arrow', 'Т-образный перекресток со стрелкой')}
+                onClick={() => handleApplyPreset('t_junction_arrow', lang === 'ru' ? 'Т-образный перекресток со стрелкой' : 'T-Junction with Arrow')}
                 className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
                   activePreset === 't_junction_arrow'
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                🔀 Т-образный (Стрелка)
+                {lang === 'ru' ? '🔀 Т-образный (Стрелка)' : '🔀 T-Junction (Arrow)'}
               </button>
               <button
-                onClick={() => handleApplyPreset('highway_radar', 'Скоростная трасса (Радар 70 км/ч)')}
+                onClick={() => handleApplyPreset('highway_radar', lang === 'ru' ? 'Скоростная трасса (Радар 70 км/ч)' : 'High-speed Highway (Radar 70)')}
                 className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
                   activePreset === 'highway_radar'
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                🛣️ Трасса (Радар 70)
+                {lang === 'ru' ? '🛣️ Трасса (Радар 70)' : '🛣️ Highway (Radar 70)'}
               </button>
               <button
-                onClick={() => handleApplyPreset('pedestrian_focus', 'Пешеходная зона / Зебра (30 км/ч)')}
+                onClick={() => handleApplyPreset('pedestrian_focus', lang === 'ru' ? 'Пешеходная зона / Зебра (30 км/ч)' : 'Pedestrian Crossing (30 km/h)')}
                 className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
                   activePreset === 'pedestrian_focus'
                     ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
                     : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
                 }`}
               >
-                🚶 Школа / Переход
+                {lang === 'ru' ? '🚶 Школа / Переход' : '🚶 School / Crossing'}
               </button>
               
               {/* Master Violation Enforcement Toggle */}
@@ -1432,14 +1432,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
                     : 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
                 }`}
-                title="Включение / отключение автоматической фиксации нарушений ПДД"
+                title={lang === 'ru' ? 'Включение / отключение автоматической фиксации нарушений ПДД' : 'Enable / disable automatic traffic violation enforcement'}
               >
-                <span>{isEnforcementActive ? '⚡ Фиксация: ВКЛ' : '⏸️ Фиксация: ВЫКЛ'}</span>
+                <span>
+                  {isEnforcementActive
+                    ? (lang === 'ru' ? '⚡ Фиксация: ВКЛ' : '⚡ Enforcement: ON')
+                    : (lang === 'ru' ? '⏸️ Фиксация: ВЫКЛ' : '⏸️ Enforcement: OFF')}
+                </span>
               </button>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             {/* 0. ИНТЕРАКТИВНОЕ ОБВЕДЕНИЕ СВЕТОФОРА (ROI) */}
             <div
               onClick={() => {
@@ -1481,27 +1485,6 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               </div>
               <div className="text-[9px] text-slate-400 font-mono">
                 {lang === 'ru' ? 'Разметка 1.12' : 'Marking 1.12'}
-              </div>
-              <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
-                {lang === 'ru' ? '+ Добавить' : '+ Add'}
-              </div>
-            </div>
-
-            {/* 2. Пешеходный переход «Зебра» 1.14 */}
-            <div
-              draggable
-              onDragStart={(e) => e.dataTransfer.setData('application/road-element-type', 'crosswalk_zone')}
-              onClick={() => handleAddElementFromPalette('crosswalk_zone')}
-              className="p-2.5 bg-slate-950/80 hover:bg-cyan-950/40 border border-slate-800 hover:border-cyan-500/60 rounded-lg cursor-grab active:cursor-grabbing transition-all flex flex-col items-center text-center group shadow-md"
-            >
-              <div className="w-8 h-8 rounded-lg bg-cyan-500/10 border border-cyan-500/30 flex items-center justify-center text-cyan-400 group-hover:scale-110 transition-transform mb-1.5">
-                <span className="text-xs">🦓</span>
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-cyan-300">
-                {lang === 'ru' ? 'Переход «Зебра»' : 'Crosswalk Zebra'}
-              </div>
-              <div className="text-[9px] text-slate-400 font-mono">
-                {lang === 'ru' ? 'Разметка 1.14' : 'Marking 1.14'}
               </div>
               <div className="mt-1.5 text-[9px] text-cyan-400 font-mono bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-500/30">
                 {lang === 'ru' ? '+ Добавить' : '+ Add'}
@@ -1631,8 +1614,8 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                       </h3>
                       <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                         {lang === 'ru'
-                          ? 'Поддерживаются видеопотоки .mp4, .mov, .avi (до 2 мин / 50 МБ). Все алгоритмы детекции и трекинга работают локально на CPU/GPU.'
-                          : 'Supports .mp4, .mov, .avi (up to 2 min / 50 MB). All detection and tracking runs client-side on CPU/GPU.'}
+                          ? 'Поддерживаются видеопотоки .mp4 без ограничений на вес и длительность. Все алгоритмы детекции и трекинга работают локально на CPU/GPU.'
+                          : 'Supports .mp4 video streams with no weight or duration limits. All detection and tracking runs client-side on CPU/GPU.'}
                       </p>
                     </div>
 
@@ -1644,25 +1627,6 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                         <Upload className="w-4 h-4" />
                         <span>{lang === 'ru' ? 'Выбрать .mp4 файл с устройства' : 'Select .mp4 File'}</span>
                       </button>
-                    </div>
-
-                    {/* Quick Sample Dataset Option */}
-                    <div className="pt-3 border-t border-slate-800 w-full">
-                      <div className="text-[11px] text-slate-400 mb-2 font-mono">
-                        {lang === 'ru' ? 'Или загрузить тестовый образец:' : 'Or load sample dataset video:'}
-                      </div>
-                      <div className="grid grid-cols-3 gap-2">
-                        {SAMPLE_VIDEOS.slice(0, 3).map((s, idx) => (
-                          <button
-                            key={s.id}
-                            onClick={() => handleLoadSampleDirect(s)}
-                            className="p-2 rounded-lg bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/80 hover:border-cyan-500/60 text-cyan-300 transition-all text-center cursor-pointer"
-                          >
-                            <div className="font-bold text-white text-[11px] font-mono">sample_00{idx + 1}</div>
-                            <div className="text-[9px] text-slate-400 mt-0.5 truncate">{s.lighting}</div>
-                          </button>
-                        ))}
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1822,7 +1786,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               <div className="flex items-center gap-2">
                 <Settings2 className="w-4 h-4 text-cyan-400" />
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">
-                  {selectedElement ? 'Свойства объекта' : 'Инспектор инфраструктуры'}
+                  {selectedElement
+                    ? (lang === 'ru' ? 'Свойства объекта' : 'Object Properties')
+                    : (lang === 'ru' ? 'Инспектор инфраструктуры' : 'Infrastructure Inspector')}
                 </h3>
               </div>
               {selectedElement && (
@@ -1830,7 +1796,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   onClick={() => setSelectedElementId(null)}
                   className="text-[10px] text-slate-400 hover:text-white cursor-pointer"
                 >
-                  Снять выбор
+                  {lang === 'ru' ? 'Снять выбор' : 'Deselect'}
                 </button>
               )}
             </div>
@@ -1839,7 +1805,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               <div className="space-y-3 text-xs">
                 <div className="p-3 bg-slate-950 rounded-lg border border-cyan-500/30 space-y-2.5">
                   <div className="space-y-1">
-                    <label className="text-[10px] text-slate-400 font-mono">Название светофора / объекта:</label>
+                    <label className="text-[10px] text-slate-400 font-mono">
+                      {lang === 'ru' ? 'Название светофора / объекта:' : 'Name of traffic light / object:'}
+                    </label>
                     <div className="flex items-center gap-2">
                       <input
                         type="text"
@@ -1851,7 +1819,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                         className="font-bold text-white text-xs bg-slate-900 border border-slate-700 rounded px-2.5 py-1.5 flex-1 focus:border-cyan-400 outline-none"
                       />
                       <span className="px-2 py-1 rounded text-[10px] font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 whitespace-nowrap">
-                        {selectedElement.type === 'traffic_light_auto' ? 'Светофор' : selectedElement.type === 'traffic_light_pedestrian' ? 'Пешеходный' : selectedElement.type}
+                        {selectedElement.type === 'traffic_light_auto'
+                          ? (lang === 'ru' ? 'Светофор' : 'Traffic Light')
+                          : selectedElement.type === 'traffic_light_pedestrian'
+                          ? (lang === 'ru' ? 'Пешеходный' : 'Pedestrian')
+                          : selectedElement.type}
                       </span>
                     </div>
                   </div>
@@ -1859,15 +1831,17 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   <div className="grid grid-cols-2 gap-2 text-[11px] font-mono pt-1 text-slate-400">
                     <div>X: {(selectedElement.x * 100).toFixed(1)}%</div>
                     <div>Y: {(selectedElement.y * 100).toFixed(1)}%</div>
-                    <div>Ширина: {(selectedElement.w * 100).toFixed(1)}%</div>
-                    <div>Высота: {(selectedElement.h * 100).toFixed(1)}%</div>
+                    <div>{lang === 'ru' ? 'Ширина:' : 'Width:'} {(selectedElement.w * 100).toFixed(1)}%</div>
+                    <div>{lang === 'ru' ? 'Высота:' : 'Height:'} {(selectedElement.h * 100).toFixed(1)}%</div>
                   </div>
                 </div>
 
                 {/* State Override if Traffic Light */}
                 {(selectedElement.type === 'traffic_light_auto' || selectedElement.type === 'traffic_light_pedestrian') && (
                   <div className="space-y-1.5">
-                    <label className="text-slate-400 text-[11px] font-bold">Оптический режим / Фаза:</label>
+                    <label className="text-slate-400 text-[11px] font-bold">
+                      {lang === 'ru' ? 'Оптический режим / Фаза:' : 'Optical Mode / Phase:'}
+                    </label>
                     <div className="grid grid-cols-4 gap-1 font-mono text-[11px]">
                       {(['AUTO', 'RED', 'YELLOW', 'GREEN'] as const).map(mode => (
                         <button
@@ -1882,7 +1856,13 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                               : 'bg-slate-950 text-slate-300 border-slate-800 hover:bg-slate-800'
                           }`}
                         >
-                          {mode === 'AUTO' ? 'Оптика' : mode === 'RED' ? '🔴 Красный' : mode === 'YELLOW' ? '🟡 Желтый' : '🟢 Зеленый'}
+                          {mode === 'AUTO'
+                            ? (lang === 'ru' ? 'Оптика' : 'Optics')
+                            : mode === 'RED'
+                            ? (lang === 'ru' ? '🔴 Красный' : '🔴 Red')
+                            : mode === 'YELLOW'
+                            ? (lang === 'ru' ? '🟡 Желтый' : '🟡 Yellow')
+                            : (lang === 'ru' ? '🟢 Зеленый' : '🟢 Green')}
                         </button>
                       ))}
                     </div>
@@ -1891,7 +1871,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
 
                 {/* Direction Phase Assignment */}
                 <div className="space-y-1.5">
-                  <label className="text-slate-400 text-[11px] font-bold">Привязка к фазе перекрестка:</label>
+                  <label className="text-slate-400 text-[11px] font-bold">
+                    {lang === 'ru' ? 'Привязка к фазе перекрестка:' : 'Intersection Phase Assignment:'}
+                  </label>
                   <select
                     value={selectedElement.direction}
                     onChange={(e) => {
@@ -1900,10 +1882,18 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     }}
                     className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200 text-xs focus:border-cyan-500 outline-none"
                   >
-                    <option value="MAIN_DIRECTION">Главное направление (Main Phase)</option>
-                    <option value="CROSS_DIRECTION">Поперечное направление (Cross Phase)</option>
-                    <option value="LEFT_TURN_PHASE">Левоповоротная секция (Left Turn)</option>
-                    <option value="PEDESTRIAN_PHASE">Пешеходная фаза (Crosswalk Phase)</option>
+                    <option value="MAIN_DIRECTION">
+                      {lang === 'ru' ? 'Главное направление (Main Phase)' : 'Main Phase'}
+                    </option>
+                    <option value="CROSS_DIRECTION">
+                      {lang === 'ru' ? 'Поперечное направление (Cross Phase)' : 'Cross Phase'}
+                    </option>
+                    <option value="LEFT_TURN_PHASE">
+                      {lang === 'ru' ? 'Левоповоротная секция (Left Turn)' : 'Left Turn Phase'}
+                    </option>
+                    <option value="PEDESTRIAN_PHASE">
+                      {lang === 'ru' ? 'Пешеходная фаза (Crosswalk Phase)' : 'Crosswalk Phase'}
+                    </option>
                   </select>
                 </div>
 
@@ -1911,8 +1901,10 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 {selectedElement.type === 'speed_radar_zone' && (
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-[11px]">
-                      <span className="text-slate-400">Лимит скорости:</span>
-                      <span className="text-yellow-400 font-bold font-mono">{selectedElement.speedLimitKmh || 60} км/ч</span>
+                      <span className="text-slate-400">{lang === 'ru' ? 'Лимит скорости:' : 'Speed Limit:'}</span>
+                      <span className="text-yellow-400 font-bold font-mono">
+                        {selectedElement.speedLimitKmh || 60} {lang === 'ru' ? 'км/ч' : 'km/h'}
+                      </span>
                     </div>
                     <input
                       type="range"
@@ -1936,14 +1928,14 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     className="flex-1 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                   >
                     <Copy className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Дублировать</span>
+                    <span>{lang === 'ru' ? 'Дублировать' : 'Duplicate'}</span>
                   </button>
                   <button
                     onClick={() => handleDeleteElement(selectedElement.id)}
                     className="py-2 px-3 bg-rose-950/60 hover:bg-rose-900 text-rose-300 rounded-lg font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer border border-rose-500/40"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
-                    <span>Удалить</span>
+                    <span>{lang === 'ru' ? 'Удалить' : 'Delete'}</span>
                   </button>
                 </div>
               </div>
@@ -1952,10 +1944,12 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 <div className="p-3 bg-slate-950 rounded-lg border border-slate-800 text-xs text-slate-400 space-y-1.5">
                   <div className="font-bold text-white flex items-center gap-1.5">
                     <Info className="w-4 h-4 text-cyan-400" />
-                    <span>Интерактивная расстановка</span>
+                    <span>{lang === 'ru' ? 'Интерактивная расстановка' : 'Interactive Layout Placement'}</span>
                   </div>
                   <p>
-                    Перетаскивайте любые элементы из верхней палитры на видео. Система динамически учитывает их положение для детекции нарушений по статьям 128, 128-4, 138 КоАО РУз.
+                    {lang === 'ru'
+                      ? 'Перетаскивайте любые элементы из верхней палитры на видео. Система динамически учитывает их положение для детекции нарушений по статьям 128, 128-4, 138 КоАО РУз.'
+                      : 'Drag any elements from the top palette directly onto the video feed. The system dynamically monitors their placement to enforce articles 128, 128-4, and 138 of the Administrative Code.'}
                   </p>
                 </div>
 
@@ -2014,7 +2008,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                                   <span className="truncate">{sig.name}</span>
                                 </span>
                                 <span className="font-mono font-bold text-[10px] shrink-0" style={{ color: sig.colorHex }}>
-                                  {sig.state === 'RED' ? '🔴 КРАСНЫЙ' : sig.state === 'YELLOW' ? '🟡 ЖЕЛТЫЙ' : '🟢 ЗЕЛЕНЫЙ'}
+                                  {sig.state === 'RED'
+                                    ? (lang === 'ru' ? '🔴 КРАСНЫЙ' : '🔴 RED')
+                                    : sig.state === 'YELLOW'
+                                    ? (lang === 'ru' ? '🟡 ЖЕЛТЫЙ' : '🟡 YELLOW')
+                                    : (lang === 'ru' ? '🟢 ЗЕЛЕНЫЙ' : '🟢 GREEN')}
                                 </span>
                               </div>
 
@@ -2022,19 +2020,19 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                               {sig.lampValues && (
                                 <div className="grid grid-cols-3 gap-1 font-mono text-[9px] text-slate-400 bg-slate-900/60 p-1 rounded">
                                   <div className="flex flex-col">
-                                    <span>Крас: {sig.lampValues.red}</span>
+                                    <span>{lang === 'ru' ? 'Крас:' : 'Red:'} {sig.lampValues.red}</span>
                                     <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden mt-0.5">
                                       <div className="bg-red-500 h-full" style={{ width: `${Math.min(100, sig.lampValues.red)}%` }}></div>
                                     </div>
                                   </div>
                                   <div className="flex flex-col">
-                                    <span>Желт: {sig.lampValues.yellow}</span>
+                                    <span>{lang === 'ru' ? 'Желт:' : 'Yel:'} {sig.lampValues.yellow}</span>
                                     <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden mt-0.5">
                                       <div className="bg-amber-500 h-full" style={{ width: `${Math.min(100, sig.lampValues.yellow * 2)}%` }}></div>
                                     </div>
                                   </div>
                                   <div className="flex flex-col">
-                                    <span>Зел: {sig.lampValues.green}</span>
+                                    <span>{lang === 'ru' ? 'Зел:' : 'Grn:'} {sig.lampValues.green}</span>
                                     <div className="w-full bg-slate-800 h-1 rounded-full overflow-hidden mt-0.5">
                                       <div className="bg-emerald-500 h-full" style={{ width: `${Math.min(100, sig.lampValues.green)}%` }}></div>
                                     </div>
@@ -2059,7 +2057,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                                           : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
                                       }`}
                                     >
-                                      {p === 'AUTO' ? 'Оптика' : p === 'RED' ? '🔴' : p === 'YELLOW' ? '🟡' : '🟢'}
+                                      {p === 'AUTO' ? (lang === 'ru' ? 'Оптика' : 'Optics') : p === 'RED' ? '🔴' : p === 'YELLOW' ? '🟡' : '🟢'}
                                     </button>
                                   ))}
                                 </div>
@@ -2070,7 +2068,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                                     handleDeleteElement(sig.id);
                                   }}
                                   className="text-slate-500 hover:text-rose-400 p-1 cursor-pointer"
-                                  title="Удалить светофор"
+                                  title={lang === 'ru' ? 'Удалить светофор' : 'Delete traffic light'}
                                 >
                                   <Trash2 className="w-3 h-3" />
                                 </button>
@@ -2082,7 +2080,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   </div>
 
                   <div className="flex items-center justify-between pt-1">
-                    <span className="text-[11px] font-bold text-slate-400">Прочие объекты разметки:</span>
+                    <span className="text-[11px] font-bold text-slate-400">
+                      {lang === 'ru' ? 'Прочие объекты разметки:' : 'Other Infrastructure Markings:'}
+                    </span>
                   </div>
 
                   <div className="max-h-56 overflow-y-auto space-y-1 pr-1">
@@ -2131,7 +2131,9 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   ? 'bg-red-500/20 text-red-300 border-red-500/30 font-bold'
                   : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'
               }`}>
-                {violationsList.length > 0 ? `ФИКСАЦИЯ: ${violationsList.length}` : 'МОНИТОРИНГ: НЕТ НАРУШЕНИЙ'}
+                {violationsList.length > 0
+                  ? (lang === 'ru' ? `ФИКСАЦИЯ: ${violationsList.length}` : `DETECTED: ${violationsList.length}`)
+                  : (lang === 'ru' ? 'МОНИТОРИНГ: НЕТ НАРУШЕНИЙ' : 'MONITORING: CLEAR')}
               </span>
             </h2>
             <p className="text-xs text-slate-400 mt-0.5">
@@ -2149,14 +2151,14 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                   className="px-2.5 py-1 bg-slate-800 hover:bg-rose-950/60 text-rose-300 hover:text-rose-200 border border-slate-700 hover:border-rose-500/40 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Очистить</span>
+                  <span>{lang === 'ru' ? 'Очистить' : 'Clear'}</span>
                 </button>
                 <button
                   onClick={handleExportViolationsReport}
                   className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-950/60 text-cyan-300 hover:text-cyan-200 border border-slate-700 hover:border-cyan-500/40 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer text-xs"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Экспорт JSON</span>
+                  <span>{lang === 'ru' ? 'Экспорт JSON' : 'Export JSON'}</span>
                 </button>
               </>
             )}

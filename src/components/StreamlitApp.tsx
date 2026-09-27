@@ -532,8 +532,17 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
 
     ctx.fillStyle = '#00f2fe';
     ctx.font = '11px JetBrains Mono, monospace';
+    const translatedCongestion = lang === 'ru'
+      ? densityData.congestionLevel
+      : densityData.congestionLevel === 'СВОБОДНО' ? 'FREE'
+      : densityData.congestionLevel === 'УМЕРЕННЫЙ' ? 'MODERATE'
+      : densityData.congestionLevel === 'ПЛОТНЫЙ' ? 'HEAVY'
+      : 'CONGESTED';
+    const watermarkText = lang === 'ru'
+      ? `STREAMLIT LIVE | ${densityData.levelOfService} (${translatedCongestion}) | Занятость: ${densityData.roadOccupancyPct}% | V_avg: ${densityData.averageSpeedKmh} км/ч`
+      : `STREAMLIT LIVE | ${densityData.levelOfService} (${translatedCongestion}) | Occupancy: ${densityData.roadOccupancyPct}% | V_avg: ${densityData.averageSpeedKmh} km/h`;
     ctx.fillText(
-      `STREAMLIT LIVE | ${densityData.levelOfService} (${densityData.congestionLevel}) | Занятость: ${densityData.roadOccupancyPct}% | V_avg: ${densityData.averageSpeedKmh} км/ч`,
+      watermarkText,
       20,
       30
     );
@@ -840,7 +849,9 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 </div>
                 <div className="text-base font-bold text-white mt-0.5 flex items-center justify-between">
                   <span>{trafficMetrics.roadOccupancyPct}%</span>
-                  <span className="text-[11px] font-normal text-slate-400">({trafficMetrics.vehicleDensityPerKm} авт/км)</span>
+                  <span className="text-[11px] font-normal text-slate-400">
+                    ({trafficMetrics.vehicleDensityPerKm} {lang === 'ru' ? 'авт/км' : 'veh/km'})
+                  </span>
                 </div>
               </div>
 
@@ -855,7 +866,12 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                     trafficMetrics.congestionLevel === 'УМЕРЕННЫЙ' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/40' :
                     'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
                   }`}>
-                    {trafficMetrics.congestionLevel}
+                    {lang === 'ru'
+                      ? trafficMetrics.congestionLevel
+                      : trafficMetrics.congestionLevel === 'СВОБОДНО' ? 'FREE'
+                      : trafficMetrics.congestionLevel === 'УМЕРЕННЫЙ' ? 'MODERATE'
+                      : trafficMetrics.congestionLevel === 'ПЛОТНЫЙ' ? 'HEAVY'
+                      : 'CONGESTED'}
                   </span>
                   <span className="text-xs text-slate-400 font-normal">({trafficMetrics.congestionScore}/10)</span>
                 </div>
@@ -867,7 +883,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 </div>
                 <div className="text-base font-bold text-emerald-400 mt-0.5 flex items-center gap-1">
                   <Activity className="w-4 h-4" />
-                  {trafficMetrics.averageSpeedKmh.toFixed(1)} км/ч
+                  {trafficMetrics.averageSpeedKmh.toFixed(1)} {lang === 'ru' ? 'км/ч' : 'km/h'}
                 </div>
               </div>
 
