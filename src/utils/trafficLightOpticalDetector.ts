@@ -162,7 +162,7 @@ export function analyzeSingleTrafficLight(
       state: fallback,
       confidence: 0.65,
       colorHex: fallback === 'RED' ? '#ef4444' : fallback === 'YELLOW' ? '#f59e0b' : '#10b981',
-      lampValues: { red: fallback === 'RED' ? 70 : 10, yellow: fallback === 'YELLOW' ? 70 : 10, green: fallback === 'GREEN' ? 70 : 10 }
+      lampValues: { red: fallback === 'RED' ? 80 : 10, yellow: fallback === 'YELLOW' ? 80 : 10, green: fallback === 'GREEN' ? 80 : 10 }
     };
   }
 
@@ -171,126 +171,75 @@ export function analyzeSingleTrafficLight(
   const ph = imgData.height;
   const rowStride = pw * 4;
 
-  // 1. First Pass: Compute Max Luminance & Distribution
-  let maxBrightness = 0;
-  for (let y = 0; y < ph; y++) {
-    for (let x = 0; x < pw; x++) {
-      const idx = y * rowStride + x * 4;
-      const lum = 0.299 * data[idx] + 0.587 * data[idx + 1] + 0.114 * data[idx + 2];
-      if (lum > maxBrightness) maxBrightness = lum;
-    }
-  }
-
-  // Active lamp core threshold: focus on any luminous element in ROI
-  const activeThreshold = Math.max(20, maxBrightness * 0.30);
-
   let redScore = 0;
   let yellowScore = 0;
   let greenScore = 0;
-
-  // Centroid accumulators for the active light source
-  let weightedYSum = 0;
-  let weightedXSum = 0;
-  let activeLumaWeightSum = 0;
   let brightPixelCount = 0;
 
   for (let y = 0; y < ph; y++) {
     const relY = y / ph;
     for (let x = 0; x < pw; x++) {
-      const relX = x / pw;
       const idx = y * rowStride + x * 4;
       const r = data[idx];
       const g = data[idx + 1];
       const b = data[idx + 2];
       const lum = 0.299 * r + 0.587 * g + 0.114 * b;
 
-      if (lum < activeThreshold) continue;
+      if (lum < 20) continue;
 
-      const excessLum = lum - activeThreshold;
-      weightedYSum += relY * excessLum;
-      weightedXSum += relX * excessLum;
-      activeLumaWeightSum += excessLum;
-      brightPixelCount++;
+      const { h, s, v } = rgbToHsv(r, g, b);
 
-      const { h, s } = rgbToHsv(r, g, b);
-
-      // A. RED SPECTRUM & OVEREXPOSED RED (Top lens)
-      const isRedHue = (h >= 320 || h <= 42);
-      const isRedRgb = (r > g + 10 && r > b + 10) || (r > 120 && r > g * 1.15 && r > b * 1.15);
-      const isOverexposedRed = r >= 180 && (r - Math.max(g, b) >= 8);
+      // 1. STRICT RED LIGHT (Top Lens Priority)
+      const isRedHue = (h >= 345 || h <= 20) && s >= 0.22 && v >= 0.20;
+      const isRedRgb = r > 100 && r > g * 1.35 && r > b * 1.35;
+      const isOverexposedRed = r >= 190 && g < 140 && b < 140;
       if (isRedHue || isRedRgb || isOverexposedRed) {
-        const purity = Math.max(10, r - Math.max(g, b));
-        const posBonus = relY < 0.45 ? 1.8 : relY > 0.65 ? 0.3 : 1.0;
-        redScore += purity * (s + 0.35) * (lum / 255) * posBonus;
+        const purity = Math.max(15, r - Math.max(g, b));
+        const posBonus = relY < 0.45 ? 1.3 : relY > 0.65 ? 0.7 : 1.0;
+        redScore += purity * (s + 0.3) * (v + 0.2) * posBonus;
+        brightPixelCount++;
+        continue; // Mutually exclusive match
       }
 
-      // B. YELLOW / AMBER SPECTRUM (Middle lens)
-      const isYellowHue = (h >= 32 && h <= 75);
-      const isYellowRgb = (r > 110 && g > 85 && b < Math.min(r, g) * 0.82);
+      // 2. STRICT YELLOW / AMBER LIGHT (Middle Lens Priority)
+      const isYellowHue = (h >= 24 && h <= 65) && s >= 0.22 && v >= 0.22;
+      const isYellowRgb = r > 110 && g > 85 && r > b * 1.40 && g > b * 1.20 && Math.abs(r - g) < 70;
       if (isYellowHue || isYellowRgb) {
-        const purity = Math.max(10, Math.min(r, g) - b);
-        const posBonus = (relY >= 0.25 && relY <= 0.75) ? 1.8 : 0.5;
-        yellowScore += purity * (s + 0.35) * (lum / 255) * posBonus;
+        const purity = Math.max(15, Math.min(r, g) - b);
+        const posBonus = (relY >= 0.25 && relY <= 0.75) ? 1.3 : 0.7;
+        yellowScore += purity * (s + 0.3) * (v + 0.2) * posBonus;
+        brightPixelCount++;
+        continue; // Mutually exclusive match
       }
 
-      // C. GREEN / CYAN SPECTRUM (Bottom lens - modern LEDs emit ~505nm cyan-green)
-      const isGreenHue = (h >= 80 && h <= 200);
-      const isGreenRgb = (g > r + 10 && g > 75) || (g > 100 && g > r * 1.12);
-      const isCyanHalo = (g > 90 && b > r + 10);
-      if (isGreenHue || isGreenRgb || isCyanHalo) {
-        const purity = Math.max(10, g - r + Math.max(0, b - r));
-        const posBonus = relY > 0.52 ? 1.8 : relY < 0.38 ? 0.3 : 1.0;
-        greenScore += purity * (s + 0.35) * (lum / 255) * posBonus;
+      // 3. STRICT GREEN / CYAN LIGHT (Bottom Lens Priority)
+      const isGreenHue = (h >= 75 && h <= 210) && s >= 0.18 && v >= 0.20;
+      const isGreenRgb = g > 85 && g > r * 1.18 && g > b * 0.95;
+      if (isGreenHue || isGreenRgb) {
+        const purity = Math.max(15, g - r + Math.max(0, b - r));
+        const posBonus = relY > 0.52 ? 1.3 : relY < 0.38 ? 0.7 : 1.0;
+        greenScore += purity * (s + 0.3) * (v + 0.2) * posBonus;
+        brightPixelCount++;
+        continue; // Mutually exclusive match
       }
     }
   }
 
-  // 2. Physical Spatial Prior from Light Centroid
-  const centroidY = activeLumaWeightSum > 0 ? (weightedYSum / activeLumaWeightSum) : 0.5;
-  const isHorizontalBox = bbox.w > bbox.h * 1.25;
-  const centroidX = activeLumaWeightSum > 0 ? (weightedXSum / activeLumaWeightSum) : 0.5;
-
-  if (isHorizontalBox) {
-    // Horizontal Traffic Light: Left = RED, Center = YELLOW, Right = GREEN
-    if (centroidX < 0.38) {
-      redScore *= 2.4;
-      redScore += 45;
-    } else if (centroidX > 0.62) {
-      greenScore *= 2.4;
-      greenScore += 45;
-    } else {
-      yellowScore *= 2.2;
-      yellowScore += 35;
-    }
-  } else {
-    // Standard Vertical Traffic Light: Top = RED, Center = YELLOW, Bottom = GREEN
-    if (centroidY < 0.40) {
-      redScore *= 2.4;
-      redScore += 45;
-    } else if (centroidY > 0.60) {
-      greenScore *= 2.4;
-      greenScore += 45;
-    } else {
-      yellowScore *= 2.2;
-      yellowScore += 35;
-    }
-  }
-
-  const normRed = Math.min(100, Math.round(redScore / 10));
-  const normYellow = Math.min(100, Math.round(yellowScore / 10));
-  const normGreen = Math.min(100, Math.round(greenScore / 10));
+  const normRed = Math.round(redScore / 12);
+  const normYellow = Math.round(yellowScore / 12);
+  const normGreen = Math.round(greenScore / 12);
 
   const lampValues = {
-    red: normRed,
-    yellow: normYellow,
-    green: normGreen
+    red: Math.min(100, normRed),
+    yellow: Math.min(100, normYellow),
+    green: Math.min(100, normGreen)
   };
 
   const totalScore = normRed + normYellow + normGreen;
 
-  // Fallback decision if ROI pixel contrast is low: use positional centroid
-  if (totalScore < 10 || brightPixelCount < 2) {
-    const fallback: 'RED' | 'YELLOW' | 'GREEN' = previousState && previousState !== 'GREEN' ? previousState : (centroidY < 0.42 ? 'RED' : centroidY > 0.62 ? 'GREEN' : 'YELLOW');
+  // Fallback decision if ROI pixel contrast is low: preserve previous state or red
+  if (totalScore < 5 || brightPixelCount < 2) {
+    const fallback = previousState || 'RED';
     return {
       state: fallback,
       confidence: 0.70,
@@ -303,19 +252,26 @@ export function analyzeSingleTrafficLight(
     };
   }
 
-  // Active state decision based on highest score
-  if (normYellow > normRed * 1.10 && normYellow > normGreen * 1.10) {
-    const conf = Math.min(0.99, normYellow / totalScore + 0.35);
-    return { state: 'YELLOW', confidence: conf, colorHex: '#f59e0b', lampValues };
+  // Deterministic state selection based strictly on highest color score
+  const maxScore = Math.max(normRed, normYellow, normGreen);
+
+  if (normGreen === maxScore && normGreen > normRed && normGreen > normYellow) {
+    return { state: 'GREEN', confidence: Math.min(0.99, normGreen / totalScore + 0.40), colorHex: '#10b981', lampValues };
   }
 
-  if (normRed >= normGreen) {
-    const conf = Math.min(0.99, normRed / totalScore + 0.35);
-    return { state: 'RED', confidence: conf, colorHex: '#ef4444', lampValues };
+  if (normRed === maxScore && normRed > normGreen && normRed > normYellow) {
+    return { state: 'RED', confidence: Math.min(0.99, normRed / totalScore + 0.40), colorHex: '#ef4444', lampValues };
   }
 
-  const conf = Math.min(0.99, normGreen / totalScore + 0.35);
-  return { state: 'GREEN', confidence: conf, colorHex: '#10b981', lampValues };
+  if (normYellow === maxScore) {
+    return { state: 'YELLOW', confidence: Math.min(0.99, normYellow / totalScore + 0.40), colorHex: '#f59e0b', lampValues };
+  }
+
+  if (normGreen >= normRed && normGreen >= normYellow) {
+    return { state: 'GREEN', confidence: 0.85, colorHex: '#10b981', lampValues };
+  }
+
+  return { state: 'RED', confidence: 0.85, colorHex: '#ef4444', lampValues };
 }
 
 /**
