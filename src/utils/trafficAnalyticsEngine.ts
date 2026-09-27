@@ -267,8 +267,8 @@ export function evaluatePairwiseCollisionRisks(entities: TrackedTrafficEntity[])
       // Time to Closest Point of Approach (CPA)
       const tCpa = -dot / relVSpeedSq;
 
-      // Strict TTC Horizon: Imminent impact must occur within [0.15s, 1.10s]
-      if (tCpa < 0.15 || tCpa > 1.10) continue;
+      // Strict TTC Horizon: Imminent impact must occur within [0.10s, 2.50s] (Relaxed from 1.10s)
+      if (tCpa < 0.10 || tCpa > 2.50) continue;
 
       // Position vector at CPA (miss distance)
       const cpaX = rxMeters + relVx * tCpa;
@@ -283,8 +283,8 @@ export function evaluatePairwiseCollisionRisks(entities: TrackedTrafficEntity[])
 
       if (isPedConflict) {
         // Pedestrian - Vehicle Conflict:
-        // Must have closing speed > 2.2 m/s (8.0 km/h) and miss distance < 0.65m (direct strike path)
-        if (missDistance > 0.65 || closingSpeedMs < 2.2) continue;
+        // Must have closing speed > 1.8 m/s (6.5 km/h - Relaxed) and miss distance < 1.2m (Relaxed direct strike path)
+        if (missDistance > 1.2 || closingSpeedMs < 1.8) continue;
 
         const ttc = parseFloat(tCpa.toFixed(1));
         const distRounded = parseFloat(distMeters.toFixed(1));
@@ -322,11 +322,11 @@ export function evaluatePairwiseCollisionRisks(entities: TrackedTrafficEntity[])
         });
       } else {
         // Vehicle - Vehicle Conflict:
-        // Direct trajectory collision only: miss distance < 0.55m, closing speed > 3.2 m/s (11.5 km/h)
-        if (missDistance > 0.55 || closingSpeedMs < 3.2) continue;
+        // Direct trajectory collision only: miss distance < 1.0m (Relaxed), closing speed > 2.0 m/s (7.2 km/h - Relaxed)
+        if (missDistance > 1.0 || closingSpeedMs < 2.0) continue;
 
-        // Parallel lane filter: lateral offset must be minimal (|dx| <= 0.055)
-        if (Math.abs(dx) > 0.055) continue;
+        // Parallel lane filter: lateral offset must be minimal (|dx| <= 0.08 - Relaxed)
+        if (Math.abs(dx) > 0.08) continue;
 
         const ttc = parseFloat(tCpa.toFixed(1));
         const distRounded = parseFloat(distMeters.toFixed(1));
