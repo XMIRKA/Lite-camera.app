@@ -228,43 +228,8 @@ class RealtimeNeuralVisionEngine {
   private rawEvents: TrafficEvent[] = [];
   private opticalSmokeResult: OpticalSmokeFireResult = { detected: false, type: null, confidence: 0 };
 
-  // Unified Road Infrastructure Elements Registry
-  private roadElements: RoadInfrastructureElement[] = [
-    {
-      id: 'stop_line_1',
-      type: 'stop_line',
-      name: 'Стоп-линия 1.12',
-      x: 0.18,
-      y: 0.60,
-      w: 0.64,
-      h: 0.015,
-      x2: 0.82,
-      y2: 0.60,
-      direction: 'MAIN_DIRECTION',
-      state: 'GREEN',
-      manualOverride: 'AUTO',
-      confidence: 1.0,
-      colorHex: '#f8fafc',
-      activeViolationsCount: 0,
-      enabled: true
-    },
-    {
-      id: 'crosswalk_1',
-      type: 'crosswalk_zone',
-      name: 'Пешеходный переход «Зебра» 1.14',
-      x: 0.14,
-      y: 0.76,
-      w: 0.72,
-      h: 0.08,
-      direction: 'PEDESTRIAN_PHASE',
-      state: 'RED',
-      manualOverride: 'AUTO',
-      confidence: 1.0,
-      colorHex: '#38bdf8',
-      activeViolationsCount: 0,
-      enabled: true
-    }
-  ];
+  // Unified Road Infrastructure Elements Registry (Traffic Lights only)
+  private roadElements: RoadInfrastructureElement[] = [];
 
   private inferCanvas: HTMLCanvasElement;
   private inferCtx: CanvasRenderingContext2D | null;
@@ -752,112 +717,6 @@ class RealtimeNeuralVisionEngine {
         manualOverride: 'AUTO',
         confidence: 0.90,
         colorHex: '#ef4444',
-        activeViolationsCount: 0,
-        enabled: true
-      },
-      {
-        id: 'stop_line_1',
-        type: 'stop_line',
-        name: 'Стоп-линия 1.12 (Перед перекрестком)',
-        x: 0.18,
-        y: 0.58,
-        w: 0.64,
-        h: 0.015,
-        x2: 0.82,
-        y2: 0.58,
-        direction: 'MAIN_DIRECTION',
-        linkedSignalId: 'sig_auto_1',
-        state: 'GREEN',
-        manualOverride: 'AUTO',
-        confidence: 1.0,
-        colorHex: '#f8fafc',
-        activeViolationsCount: 0,
-        enabled: true
-      },
-      {
-        id: 'crosswalk_1',
-        type: 'crosswalk_zone',
-        name: 'Пешеходный переход «Зебра» 1.14',
-        x: 0.14,
-        y: 0.74,
-        w: 0.72,
-        h: 0.09,
-        direction: 'PEDESTRIAN_PHASE',
-        linkedSignalId: 'sig_ped_1',
-        state: 'RED',
-        manualOverride: 'AUTO',
-        confidence: 1.0,
-        colorHex: '#38bdf8',
-        activeViolationsCount: 0,
-        enabled: true
-      },
-      {
-        id: 'solid_1',
-        type: 'solid_line',
-        name: 'Сплошная #1 (Разделитель 1.1)',
-        x: 0.38,
-        y: 0.28,
-        w: 0.01,
-        h: 0.66,
-        x2: 0.28,
-        y2: 0.94,
-        direction: 'MAIN_DIRECTION',
-        state: 'OFF',
-        manualOverride: 'AUTO',
-        confidence: 1.0,
-        colorHex: '#6366f1',
-        activeViolationsCount: 0,
-        enabled: true
-      },
-      {
-        id: 'solid_2',
-        type: 'solid_line',
-        name: 'Сплошная #2 (Осевая 1.1)',
-        x: 0.62,
-        y: 0.28,
-        w: 0.01,
-        h: 0.66,
-        x2: 0.72,
-        y2: 0.94,
-        direction: 'MAIN_DIRECTION',
-        state: 'OFF',
-        manualOverride: 'AUTO',
-        confidence: 1.0,
-        colorHex: '#6366f1',
-        activeViolationsCount: 0,
-        enabled: true
-      },
-      {
-        id: 'parking_1',
-        type: 'no_parking_zone',
-        name: 'Зона запрета остановки 3.27',
-        x: 0.02,
-        y: 0.45,
-        w: 0.16,
-        h: 0.25,
-        direction: 'MAIN_DIRECTION',
-        state: 'OFF',
-        manualOverride: 'AUTO',
-        confidence: 1.0,
-        colorHex: '#ef4444',
-        maxStopDurationSec: 10,
-        activeViolationsCount: 0,
-        enabled: true
-      },
-      {
-        id: 'radar_1',
-        type: 'speed_radar_zone',
-        name: 'Фоторадар контроля скорости 60 км/ч',
-        x: 0.20,
-        y: 0.35,
-        w: 0.60,
-        h: 0.14,
-        direction: 'MAIN_DIRECTION',
-        state: 'OFF',
-        manualOverride: 'AUTO',
-        confidence: 1.0,
-        colorHex: '#eab308',
-        speedLimitKmh: 60,
         activeViolationsCount: 0,
         enabled: true
       }

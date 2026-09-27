@@ -238,6 +238,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
   const [showTrajectories, setShowTrajectories] = useState<boolean>(false);
   const [showSpeedRadar, setShowSpeedRadar] = useState<boolean>(true);
   const [showInfrastructureOverlay, setShowInfrastructureOverlay] = useState<boolean>(true);
+  const [showCollisionAlerts, setShowCollisionAlerts] = useState<boolean>(true);
 
   // Interactive Traffic Light ROI Drawing State
   const [isDrawingROI, setIsDrawingROI] = useState<boolean>(false);
@@ -540,6 +541,38 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
     }
 
     setSelectedElementId(null);
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const mouseEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      } as React.MouseEvent<HTMLCanvasElement>;
+      handleCanvasMouseDown(mouseEvent);
+      if (isDrawingROI) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const mouseEvent = {
+        clientX: touch.clientX,
+        clientY: touch.clientY,
+      } as React.MouseEvent<HTMLCanvasElement>;
+      handleCanvasMouseMove(mouseEvent);
+      if (isDrawingROI) {
+        e.preventDefault();
+      }
+    }
+  };
+
+  const handleCanvasTouchEnd = () => {
+    handleCanvasMouseUp();
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1293,57 +1326,28 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
           </div>
         </div>
 
-        {/* Source Mode Switcher, 1-Click CV Auto Calibration, ROI Traffic Light Tool & Upload */}
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
-          {/* ROI Traffic Light Drawing Button */}
+          {/* Source Mode Switcher, ROI Traffic Light Tool & Upload */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full">
+
+          {/* ROI Traffic Light Tool Toggle */}
           <button
-            onClick={() => {
-              setIsDrawingROI(prev => !prev);
-              setRoiType('traffic_light_auto');
-              if (!isDrawingROI) {
-                setJumpNotice('🎯 Режим обведения светофора: кликните и протяните рамку вокруг светофора на видео.');
-                setTimeout(() => setJumpNotice(null), 4000);
-              }
-            }}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-md ${
+            onClick={() => setIsDrawingROI(prev => !prev)}
+            className={`px-3 py-2 sm:py-1.5 rounded-lg border text-[11px] sm:text-xs font-bold flex items-center justify-center gap-1.5 transition-all hover:scale-[1.02] active:scale-95 ${
               isDrawingROI
-                ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 border-amber-300 shadow-amber-400/40 animate-pulse'
-                : 'bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border-indigo-500/50 hover:text-white'
-            }`}
-            title="Нажмите, затем обведите светофор на экране для оптического распознавания цветов с акцентом"
-          >
-            <Crosshair className="w-3.5 h-3.5" />
-            <span>{isDrawingROI ? '🎯 Обведите светофор...' : '🎯 Обвести светофор (ROI)'}</span>
-          </button>
-
-          {/* 1-Click Master CV Auto Calibration Button */}
-          <button
-            onClick={handleAutoCalibrateAll}
-            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 cursor-pointer"
-            title="Алгоритмы компьютерного зрения сканируют сцену и расставляют светофоры, стоп-линии и разметку"
-          >
-            <Sparkles className="w-3.5 h-3.5 fill-current" />
-            <span>{lang === 'ru' ? '⚡ Авто-CV расстановка' : '⚡ 1-Click CV Auto'}</span>
-          </button>
-
-          <button
-            onClick={() => setIsPaletteOpen(prev => !prev)}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer ${
-              isPaletteOpen
-                ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50'
-                : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
+                ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-emerald-500/20'
+                : 'bg-slate-800 text-slate-400 border-slate-700 hover:text-white'
             }`}
           >
-            <Layers className="w-3.5 h-3.5" />
-            <span>{isPaletteOpen ? 'Скрыть палитру' : 'Палитра объектов'}</span>
+            <Target className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span>{lang === 'ru' ? 'Обвести светофор (ROI)' : 'Select Traffic Light (ROI)'}</span>
           </button>
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="px-3.5 py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 cursor-pointer"
+            className="px-3.5 py-2 sm:py-1.5 rounded-lg bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-slate-950 font-bold text-[11px] sm:text-xs flex items-center justify-center gap-1.5 transition-all shadow-md shadow-cyan-500/20 cursor-pointer hover:scale-[1.02] active:scale-95"
           >
-            <Upload className="w-3.5 h-3.5" />
-            <span>{uploadedFileName ? (uploadedFileName.length > 20 ? uploadedFileName.slice(0, 18) + '...' : uploadedFileName) : (lang === 'ru' ? 'Загрузить видео (.mp4)' : 'Upload Video (.mp4)')}</span>
+            <Upload className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+            <span className="truncate">{uploadedFileName ? (uploadedFileName.length > 20 ? uploadedFileName.slice(0, 15) + '...' : uploadedFileName) : (lang === 'ru' ? 'Загрузить видео (.mp4)' : 'Upload Video (.mp4)')}</span>
           </button>
 
           <input
@@ -1365,69 +1369,15 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-cyan-400" />
               <h2 className="text-xs font-bold text-white uppercase tracking-wider">
-                {lang === 'ru' ? 'Дорожная инфраструктура & Готовые шаблоны сцен' : 'Infrastructure & Automated Scene Presets'}
+                {lang === 'ru' ? 'Дорожная инфраструктура & Светофоры' : 'Infrastructure & Traffic Lights'}
               </h2>
             </div>
             
-            {/* Quick Scene Presets Selector */}
-            <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
-              <span className="text-slate-400 font-sans text-xs mr-1">{lang === 'ru' ? 'Пресеты:' : 'Presets:'}</span>
-              <button
-                onClick={handleClearAllRoadElements}
-                className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
-                  activePreset === 'empty' || roadElements.length === 0
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-                title={lang === 'ru' ? 'Очистить все дорожные элементы с холста' : 'Clear all road elements from canvas'}
-              >
-                {lang === 'ru' ? '🧹 Чистый холст' : '🧹 Clear Canvas'}
-              </button>
-              <button
-                onClick={() => handleApplyPreset('standard_intersection', lang === 'ru' ? 'Классический 4-полосный перекресток' : 'Standard 4-Lane Intersection')}
-                className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
-                  activePreset === 'standard_intersection'
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                {lang === 'ru' ? '🚦 Перекресток 4-полосный' : '🚦 4-Lane Intersection'}
-              </button>
-              <button
-                onClick={() => handleApplyPreset('t_junction_arrow', lang === 'ru' ? 'Т-образный перекресток со стрелкой' : 'T-Junction with Arrow')}
-                className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
-                  activePreset === 't_junction_arrow'
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                {lang === 'ru' ? '🔀 Т-образный (Стрелка)' : '🔀 T-Junction (Arrow)'}
-              </button>
-              <button
-                onClick={() => handleApplyPreset('highway_radar', lang === 'ru' ? 'Скоростная трасса (Радар 70 км/ч)' : 'High-speed Highway (Radar 70)')}
-                className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
-                  activePreset === 'highway_radar'
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                {lang === 'ru' ? '🛣️ Трасса (Радар 70)' : '🛣️ Highway (Radar 70)'}
-              </button>
-              <button
-                onClick={() => handleApplyPreset('pedestrian_focus', lang === 'ru' ? 'Пешеходная зона / Зебра (30 км/ч)' : 'Pedestrian Crossing (30 km/h)')}
-                className={`px-2 py-1 rounded border transition-colors cursor-pointer text-xs ${
-                  activePreset === 'pedestrian_focus'
-                    ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/50 font-bold'
-                    : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
-                }`}
-              >
-                {lang === 'ru' ? '🚶 Школа / Переход' : '🚶 School / Crossing'}
-              </button>
-              
+            <div className="flex items-center gap-1.5 text-[11px] font-mono">
               {/* Master Violation Enforcement Toggle */}
               <button
                 onClick={toggleEnforcement}
-                className={`ml-2 px-2.5 py-1 rounded border transition-colors cursor-pointer text-xs flex items-center gap-1 ${
+                className={`px-2.5 py-1 rounded border transition-all cursor-pointer text-xs flex items-center gap-1 hover:scale-105 active:scale-95 ${
                   isEnforcementActive
                     ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 font-bold'
                     : 'bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold'
@@ -1444,31 +1394,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {/* 0. ИНТЕРАКТИВНОЕ ОБВЕДЕНИЕ СВЕТОФОРА (ROI) */}
-            <div
-              onClick={() => {
-                setIsDrawingROI(true);
-                setRoiType('traffic_light_auto');
-                setJumpNotice(lang === 'ru' ? '🎯 Зажмите левую кнопку мыши и обведите светофор на видео' : '🎯 Drag mouse to outline traffic light on video');
-                setTimeout(() => setJumpNotice(null), 3500);
-              }}
-              className={`p-2.5 bg-indigo-950/70 hover:bg-indigo-900/60 border rounded-lg cursor-pointer transition-all flex flex-col items-center text-center group shadow-md ${
-                isDrawingROI ? 'border-amber-400 ring-2 ring-amber-400/50' : 'border-indigo-500/40 hover:border-indigo-400'
-              }`}
-            >
-              <div className="w-8 h-8 rounded-lg bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-indigo-300 group-hover:scale-110 transition-transform mb-1.5">
-                <Crosshair className="w-4 h-4 animate-spin text-amber-300" />
-              </div>
-              <div className="text-[11px] font-bold text-white group-hover:text-amber-300">
-                {lang === 'ru' ? 'Обвести светофор' : 'Outline Traffic Light'}
-              </div>
-              <div className="text-[9px] text-indigo-300 font-mono">
-                {lang === 'ru' ? 'Акцент (ROI)' : 'ROI Focus'}
-              </div>
-              <div className="mt-1.5 text-[9px] text-amber-300 font-mono bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">
-                {isDrawingROI ? (lang === 'ru' ? 'Активно...' : 'Active...') : (lang === 'ru' ? '🎯 Выделить' : '🎯 Highlight')}
-              </div>
-            </div>
+
 
             {/* 1. Стоп-линия разметки 1.12 */}
             <div
@@ -1567,8 +1493,11 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                 width={1280}
                 height={720}
                 onMouseDown={handleCanvasMouseDown}
+                onTouchStart={handleCanvasTouchStart}
                 onMouseMove={handleCanvasMouseMove}
+                onTouchMove={handleCanvasTouchMove}
                 onMouseUp={handleCanvasMouseUp}
+                onTouchEnd={handleCanvasTouchEnd}
                 onMouseLeave={() => {
                   mousePosRef.current = null;
                   handleCanvasMouseUp();
@@ -1710,24 +1639,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
 
                   <div className="h-5 w-px bg-slate-800 mx-1"></div>
 
-                  {/* Frame-by-Frame Backward / Forward (0.04s per frame @ 25fps) */}
-                  <button
-                    onClick={() => handleStepFrame(-1)}
-                    className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-cyan-950/60 text-slate-200 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Шаг назад на 1 кадр (0.04с / Клавиша '<')"
-                  >
-                    <SkipBack className="w-3.5 h-3.5" />
-                    <span>-1 кадр</span>
-                  </button>
 
-                  <button
-                    onClick={() => handleStepFrame(1)}
-                    className="px-2.5 py-1.5 rounded-lg bg-slate-900 hover:bg-cyan-950/60 text-slate-200 hover:text-cyan-300 border border-slate-800 hover:border-cyan-500/40 text-xs font-mono font-bold flex items-center gap-1 transition-colors cursor-pointer"
-                    title="Шаг вперед на 1 кадр (0.04с / Клавиша '>')"
-                  >
-                    <span>+1 кадр</span>
-                    <SkipForward className="w-3.5 h-3.5" />
-                  </button>
 
                   {/* 5-second Jump Buttons */}
                   <button
@@ -1966,25 +1878,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                       </span>
                     </div>
 
-                    {/* Quick Add Button for Traffic Light ROI Drawing */}
-                    <div className="pt-0.5">
-                      <button
-                        onClick={() => {
-                          setIsDrawingROI(true);
-                          setRoiType('traffic_light_auto');
-                          setJumpNotice(lang === 'ru' ? '🎯 Зажмите ЛКМ и обведите светофор на видео' : '🎯 Click & drag mouse to highlight traffic light on video');
-                          setTimeout(() => setJumpNotice(null), 3500);
-                        }}
-                        className={`w-full py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-2 cursor-pointer transition-all border ${
-                          isDrawingROI
-                            ? 'bg-amber-500 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
-                            : 'bg-slate-900 hover:bg-slate-800 text-amber-300 border-amber-500/40 hover:border-amber-400'
-                        }`}
-                      >
-                        <Crosshair className="w-4 h-4 animate-spin text-amber-400" />
-                        <span>{lang === 'ru' ? '+ Обвести светофор' : '+ Draw Traffic Light'}</span>
-                      </button>
-                    </div>
+
 
                     {/* List of ALL Configured Traffic Lights */}
                     <div className="space-y-1.5 max-h-60 overflow-y-auto pr-0.5">
@@ -2191,20 +2085,30 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               {tab.label}
             </button>
           ))}
+          <button
+            onClick={() => setShowCollisionAlerts(prev => !prev)}
+            className={`px-2.5 py-1 rounded-md transition-colors cursor-pointer font-bold ${
+              showCollisionAlerts
+                ? 'bg-red-600 text-white'
+                : 'bg-slate-950 text-slate-400 border border-slate-800 hover:text-white'
+            }`}
+          >
+            {showCollisionAlerts ? '⚠️ Alerts ON' : '⚠️ Alerts OFF'}
+          </button>
         </div>
 
         {/* Violations Table */}
-        {violationsList.length > 0 ? (
+        {violationsList.length > 0 && (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] bg-slate-950/60">
-                  <th className="py-2.5 px-3">Таймкод</th>
-                  <th className="py-2.5 px-3">Госномер (ANPR)</th>
-                  <th className="py-2.5 px-3">Тип инцидента</th>
-                  <th className="py-2.5 px-3">Квалификация (КоАО РУз)</th>
-                  <th className="py-2.5 px-3">Сумма штрафа</th>
-                  <th className="py-2.5 px-3 text-right">Действия</th>
+                <tr className="border-b border-slate-800 text-slate-400 font-mono text-[11px] bg-slate-950/60 sticky top-0">
+                  <th className="py-3 px-4">Таймкод</th>
+                  <th className="py-3 px-4">ТС / Госномер</th>
+                  <th className="py-3 px-4">Описание нарушения</th>
+                  <th className="py-3 px-4">Статья КоАО</th>
+                  <th className="py-3 px-4">Штраф</th>
+                  <th className="py-3 px-4 text-right">Действия</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/80">
@@ -2214,59 +2118,49 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
                     <tr
                       key={viol.id}
                       onClick={() => handleSeek(viol.start, viol.labelRu)}
-                      className={`transition-colors cursor-pointer group ${
+                      className={`transition-all cursor-pointer group border-l-2 ${
                         isCurrentActive
-                          ? 'bg-cyan-950/40 hover:bg-cyan-950/60'
-                          : 'hover:bg-slate-800/60 bg-slate-950/30'
+                          ? 'bg-cyan-950/20 border-cyan-500'
+                          : 'hover:bg-slate-800/40 border-transparent'
                       }`}
                     >
-                      <td className="py-3 px-3 font-mono">
-                        <div className="flex items-center gap-1.5 font-bold text-cyan-300">
-                          <Clock className="w-3.5 h-3.5 text-slate-500 group-hover:text-cyan-400" />
-                          <span>{viol.start.toFixed(1)}с – {viol.end.toFixed(1)}с</span>
+                      <td className="py-4 px-4 font-mono text-cyan-200">
+                        <div className="flex items-center gap-2 font-bold">
+                          <Clock className="w-4 h-4 text-slate-500" />
+                          {viol.start.toFixed(1)}с — {viol.end.toFixed(1)}с
                         </div>
-                        <span className="text-[10px] text-slate-500 font-mono">Δt = {Math.max(0.1, viol.end - viol.start).toFixed(1)}с</span>
+                        <div className="text-[10px] text-slate-500 mt-0.5">Длительность: {(viol.end - viol.start).toFixed(1)}с</div>
                       </td>
-                      <td className="py-3 px-3 font-mono">
-                        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-white font-bold text-[11px]">
+                      <td className="py-4 px-4">
+                        <span className="px-2 py-0.5 rounded bg-slate-900 border border-slate-700 text-white font-bold font-mono text-[11px]">
                           {viol.licensePlate}
                         </span>
-                        <div className="text-[10px] text-slate-400 font-sans mt-0.5">{viol.vehicleType}</div>
+                        <div className="text-[10px] text-slate-400 mt-1">{viol.vehicleType}</div>
                       </td>
-                      <td className="py-3 px-3">
+                      <td className="py-4 px-4">
                         <div className="font-bold text-white group-hover:text-cyan-300 transition-colors">
                           {lang === 'ru' ? viol.labelRu : viol.labelEn}
                         </div>
-                        <div className="text-[10px] text-slate-400 font-mono">{viol.description}</div>
+                        <div className="text-[10px] text-slate-500 font-mono mt-0.5 max-w-[180px] truncate">{viol.description}</div>
                       </td>
-                      <td className="py-3 px-3">
-                        <div className="text-slate-300 font-medium">{viol.codeArticle}</div>
-                        <div className="text-[10px] text-slate-400">{viol.fineBrv}</div>
+                      <td className="py-4 px-4 text-[11px]">
+                        <div className="text-amber-300 font-medium">{viol.codeArticle}</div>
+                        <div className="text-slate-500">{viol.fineBrv}</div>
                       </td>
-                      <td className="py-3 px-3">
-                        <div className="font-mono font-bold text-emerald-400">{viol.fineUzs}</div>
-                        <div className="text-[10px] text-slate-500">Городской бюджет</div>
+                      <td className="py-4 px-4">
+                        <div className="font-mono font-bold text-emerald-400 text-sm">{viol.fineUzs}</div>
+                        <div className="text-[10px] text-slate-500">Официальный штраф</div>
                       </td>
-                      <td className="py-3 px-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
+                      <td className="py-4 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
                               setActiveProtocolItem(viol);
                             }}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-cyan-950/80 text-cyan-300 border border-slate-700 hover:border-cyan-500/40 rounded-lg text-xs font-bold transition-colors cursor-pointer"
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-bold transition-all cursor-pointer"
                           >
                             Протокол
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleSeek(viol.start, viol.labelRu);
-                            }}
-                            className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-bold rounded-lg text-xs font-mono flex items-center gap-1 shadow-md shadow-cyan-600/20 transition-all cursor-pointer"
-                          >
-                            <Target className="w-3 h-3" />
-                            <span>Перейти</span>
                           </button>
                         </div>
                       </td>
@@ -2276,57 +2170,8 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               </tbody>
             </table>
           </div>
-        ) : (
-          <div className="p-6 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                  <CheckCircle2 className="w-5 h-5" />
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-white flex items-center gap-2">
-                    <span>Нарушений ПДД не зафиксировано</span>
-                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
-                  </div>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {lang === 'ru'
-                      ? 'Все размещенные дорожные объекты (светофоры, стоп-линии) контролируют поток в реальном времени.'
-                      : 'All configured infrastructure elements (traffic lights, stop lines) monitor real-time traffic.'}
-                  </p>
-                </div>
-              </div>
-
-              {/* Quick Test Incident Simulations */}
-              <div className="flex flex-wrap items-center gap-1.5 text-[11px] font-mono">
-                <span className="text-slate-500 text-[10px] mr-1">{lang === 'ru' ? 'Тест правил:' : 'Test Rules:'}</span>
-                <button
-                  onClick={() => handleSimulateViolation('red_light')}
-                  className="px-2 py-1 bg-red-950/60 hover:bg-red-900/80 text-red-300 border border-red-500/30 rounded-md transition-colors cursor-pointer"
-                >
-                  🔴 {lang === 'ru' ? 'Красный' : 'Red Light'}
-                </button>
-                <button
-                  onClick={() => handleSimulateViolation('jaywalking')}
-                  className="px-2 py-1 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 border border-amber-500/30 rounded-md transition-colors cursor-pointer"
-                >
-                  🚶 Пешеход
-                </button>
-                <button
-                  onClick={() => handleSimulateViolation('near_miss')}
-                  className="px-2 py-1 bg-rose-950/60 hover:bg-rose-900/80 text-rose-300 border border-rose-500/30 rounded-md transition-colors cursor-pointer"
-                >
-                  ⚠️ TTC &lt; 2.0с
-                </button>
-                <button
-                  onClick={() => handleSimulateViolation('stopped_vehicle')}
-                  className="px-2 py-1 bg-orange-950/60 hover:bg-orange-900/80 text-orange-300 border border-orange-500/30 rounded-md transition-colors cursor-pointer"
-                >
-                  ⏱️ Стоп &gt;10с
-                </button>
-              </div>
-            </div>
-          </div>
         )}
+
       </div>
 
       {/* Official Fine Protocol Modal (Электронное постановление МВД РУз) */}
@@ -2343,7 +2188,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
               </div>
               <button
                 onClick={() => setActiveProtocolItem(null)}
-                className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer"
+                className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer hover:rotate-90 transition-transform"
               >
                 ✕
               </button>

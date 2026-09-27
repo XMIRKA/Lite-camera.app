@@ -209,8 +209,8 @@ export function evaluatePairwiseCollisionRisks(entities: TrackedTrafficEntity[])
       const ryMeters = dy * meterScale;
       const distMeters = Math.hypot(rxMeters, ryMeters);
 
-      // Strict proximity horizon: Only evaluate objects within immediate physical danger zone (<= 2.4 meters)
-      if (distMeters > 2.4 || distMeters < 0.10) continue;
+      // Strict proximity horizon: Only evaluate objects within immediate physical danger zone (<= 4.0 meters)
+      if (distMeters > 4.0 || distMeters < 0.10) continue;
 
       // Robust Velocity Vector Estimation over Multi-Frame Window (eliminates single-frame jitter noise)
       const getVelocity = (obj: TrackedTrafficEntity): { vx: number; vy: number; valid: boolean } => {

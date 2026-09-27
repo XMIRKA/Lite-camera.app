@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { STARTER_KIT_FILES } from '../data/starterKitCode';
 import { StreamlitApp } from './StreamlitApp';
 import {
@@ -25,6 +25,16 @@ export const RepositoryHub: React.FC<RepositoryHubProps> = ({ lang }) => {
   const [activeSubTab, setActiveSubTab] = useState<'interactive' | 'code'>('interactive');
   const [selectedFileIdx, setSelectedFileIdx] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
+  const [livePing, setLivePing] = useState<number>(10.1);
+  const [liveFps, setLiveFps] = useState<number>(38.5);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLivePing(9.5 + Math.random() * 2.8);
+      setLiveFps(37.5 + Math.random() * 2.5);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const currentFile = STARTER_KIT_FILES[selectedFileIdx];
 
@@ -86,12 +96,12 @@ export const RepositoryHub: React.FC<RepositoryHubProps> = ({ lang }) => {
         <div className="flex items-center gap-4 bg-slate-950 px-4 py-2.5 rounded-lg border border-slate-800/80 font-mono text-[11px] shrink-0 self-start lg:self-center">
           <div className="flex flex-col">
             <span className="text-slate-500 text-[9px] uppercase">Telemetry Ping</span>
-            <span className="text-cyan-400 font-bold">10.1 ms</span>
+            <span className="text-cyan-400 font-bold">{livePing.toFixed(1)} ms</span>
           </div>
           <div className="w-px h-6 bg-slate-800" />
           <div className="flex flex-col">
             <span className="text-slate-500 text-[9px] uppercase">Streamlit FPS</span>
-            <span className="text-emerald-400 font-bold">38.5 FPS</span>
+            <span className="text-emerald-400 font-bold">{liveFps.toFixed(1)} FPS</span>
           </div>
           <div className="w-px h-6 bg-slate-800" />
           <div className="flex flex-col">

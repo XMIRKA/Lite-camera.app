@@ -294,6 +294,21 @@ export const EDASection: React.FC<EDASectionProps> = ({ lang }) => {
                 : 'Bounding box centroid checks cause false alarms on wide vehicles. Our tire segment intersection (left tire at 15% width, right tire at 85%) achieves 100% precision on solid line marking 1.1.'}
             </p>
           </div>
+          <div className="p-4 bg-slate-950 border border-slate-800/80 rounded-xl space-y-2">
+            <div className="flex items-center gap-2 text-xs font-mono text-cyan-400 font-bold">
+              <span>FINDING 05</span>
+              <span>·</span>
+              <span>Mobile-First Inference Interface</span>
+            </div>
+            <h4 className="text-sm font-bold text-white">
+              {lang === 'ru' ? 'Адаптивность управления на телефонах' : 'Mobile-Responsive Interaction Model'}
+            </h4>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              {lang === 'ru'
+                ? 'Для полевой работы инспекторов реализована поддержка сенсорного управления для выделения областей (ROI) на видео прямо с телефона.'
+                : 'To support field inspection, we implemented touch-based ROI selection, enabling precise traffic light annotation directly on mobile devices.'}
+            </p>
+          </div>
         </div>
       </div>
     </div>

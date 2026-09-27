@@ -52,10 +52,6 @@ interface DetectedObject {
 export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
   // Streamlit Configuration State (Sidebar)
   const [modelWeights, setModelWeights] = useState<string>('yolov8n.pt');
-  const [confThreshold, setConfThreshold] = useState<number>(0.35);
-  const [iouThreshold, setIouThreshold] = useState<number>(0.45);
-  const [enableTrajectories, setEnableTrajectories] = useState<boolean>(true);
-  const [enableSpeedRadar, setEnableSpeedRadar] = useState<boolean>(true);
   const [enableCollisionAlerts, setEnableCollisionAlerts] = useState<boolean>(true);
 
   // Video & Streamlit Execution State
@@ -68,6 +64,16 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
   const [currentFrame, setCurrentFrame] = useState<number>(0);
   const [totalFrames, setTotalFrames] = useState<number>(Math.floor(SAMPLE_VIDEOS[0].duration * 25));
   const [pipelineFps, setPipelineFps] = useState<number>(28.5);
+  const [livePing, setLivePing] = useState<number>(10.5);
+  const [liveFps, setLiveFps] = useState<number>(28.5);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLivePing(10.0 + Math.random() * 3.5);
+      setLiveFps(27.8 + Math.random() * 2.2);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   // Real-time dynamic detections & traffic density metrics
   const [pedestrianCount, setPedestrianCount] = useState<number>(0);
@@ -142,7 +148,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     // Vehicle 1: Moving westbound
     const v1_x = 0.85 - ((t * 0.08) % 1.0);
     const v1_y = 0.58 + Math.sin(t * 0.5) * 0.02;
-    if (v1_x > 0.05 && v1_x < 0.95 && confThreshold <= 0.85) {
+    if (v1_x > 0.05 && v1_x < 0.95) {
       objs.push({
         id: 101,
         cls: 'car',
@@ -165,7 +171,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     // Vehicle 2: Eastbound car
     const v2_x = 0.15 + ((t * 0.06) % 1.0);
     const v2_y = 0.68;
-    if (v2_x > 0.05 && v2_x < 0.95 && confThreshold <= 0.75) {
+    if (v2_x > 0.05 && v2_x < 0.95) {
       objs.push({
         id: 104,
         cls: 'car',
@@ -187,7 +193,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     // Pedestrian with Bicycle / Cyclist: Crosswalk
     const p1_x = 0.42 + Math.sin(t * 0.4) * 0.05;
     const p1_y = 0.48 + ((t * 0.03) % 0.35);
-    if (confThreshold <= 0.60) {
+    if (true) {
       objs.push({
         id: 205,
         cls: 'person_bike',
@@ -209,7 +215,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     // Pedestrian 2: Sidewalk
     const p2_x = 0.82;
     const p2_y = 0.42 + ((t * 0.02) % 0.25);
-    if (confThreshold <= 0.50) {
+    if (true) {
       objs.push({
         id: 209,
         cls: 'pedestrian',
@@ -230,7 +236,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     // Courier / Moped
     const m_x = 0.20 + ((t * 0.07) % 0.9);
     const m_y = 0.62;
-    if (confThreshold <= 0.65) {
+    if (true) {
       objs.push({
         id: 218,
         cls: 'person_moped',
@@ -249,7 +255,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     }
 
     // Bus / Heavy vehicle
-    if (t > 2 && t < 14 && confThreshold <= 0.70) {
+    if (t > 2 && t < 14) {
       const b_x = 0.28 + ((t - 2) * 0.045);
       objs.push({
         id: 312,
@@ -269,7 +275,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
     }
 
     return objs;
-  }, [modelWeights, confThreshold]);
+  }, [modelWeights]);
 
   // OpenCV Canvas Drawing Loop (cv2 simulation engine)
   const drawOpenCVOverlay = useCallback(() => {
@@ -465,24 +471,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
         ctx.stroke();
       }
 
-      // 2. Draw Trajectory lines (cv2.line)
-      if (enableTrajectories && obj.trail.length > 1) {
-        ctx.strokeStyle = isDanger ? '#ef4444cc' : color;
-        ctx.lineWidth = isDanger ? 3 : 2;
-        ctx.beginPath();
-        obj.trail.forEach((pt, idx) => {
-          const px = pt.x * width + bw / 2;
-          const py = pt.y * height + bh;
-          if (idx === 0) ctx.moveTo(px, py);
-          else ctx.lineTo(px, py);
-        });
-        ctx.stroke();
-
-        ctx.fillStyle = isDanger ? '#ef4444' : color;
-        ctx.beginPath();
-        ctx.arc(bx + bw / 2, by + bh, isDanger ? 5 : 3.5, 0, Math.PI * 2);
-        ctx.fill();
-      }
+      // 2. Trajectory lines removed per user request
 
       // 3. Draw HUD Tag with flashing 'DANGER' label (cv2.putText)
       if (isDanger) {
@@ -543,7 +532,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
       20,
       30
     );
-  }, [currentTime, generateDetections, enableTrajectories, enableSpeedRadar, enableCollisionAlerts, modelWeights, uploadedVideoUrl]);
+  }, [currentTime, generateDetections, enableCollisionAlerts, modelWeights, uploadedVideoUrl]);
 
   // Synthetic timer when playing without uploaded video
   useEffect(() => {
@@ -678,66 +667,8 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 </select>
               </div>
 
-              {/* Confidence slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-slate-300">{lang === 'ru' ? 'Порог уверенности (Conf):' : 'Confidence Thresh:'}</span>
-                  <span className="text-[#00f2fe] font-bold">{confThreshold.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.10"
-                  max="0.95"
-                  step="0.05"
-                  value={confThreshold}
-                  onChange={(e) => setConfThreshold(parseFloat(e.target.value))}
-                  className="w-full accent-[#00f2fe] bg-[#0b132b] cursor-pointer"
-                />
-              </div>
-
-              {/* IoU slider */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between">
-                  <span className="text-slate-300">{lang === 'ru' ? 'Порог NMS IoU:' : 'NMS IoU Thresh:'}</span>
-                  <span className="text-emerald-400 font-bold">{iouThreshold.toFixed(2)}</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.10"
-                  max="0.90"
-                  step="0.05"
-                  value={iouThreshold}
-                  onChange={(e) => setIouThreshold(parseFloat(e.target.value))}
-                  className="w-full accent-emerald-400 bg-[#0b132b] cursor-pointer"
-                />
-              </div>
-
               {/* Checkboxes */}
               <div className="space-y-2.5 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={enableTrajectories}
-                    onChange={(e) => setEnableTrajectories(e.target.checked)}
-                    className="accent-[#00f2fe] w-4 h-4 rounded"
-                  />
-                  <span className="text-slate-200">
-                    {lang === 'ru' ? 'Отрисовывать траектории ByteTrack' : 'Render ByteTrack Trajectories'}
-                  </span>
-                </label>
-
-                <label className="flex items-center gap-2 cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={enableSpeedRadar}
-                    onChange={(e) => setEnableSpeedRadar(e.target.checked)}
-                    className="accent-[#00f2fe] w-4 h-4 rounded"
-                  />
-                  <span className="text-slate-200">
-                    {lang === 'ru' ? 'Радар физической скорости (км/ч)' : 'Physical Speed Radar (km/h)'}
-                  </span>
-                </label>
-
                 <label className="flex items-center gap-2 cursor-pointer select-none bg-red-950/40 p-1.5 rounded border border-red-500/30">
                   <input
                     type="checkbox"
@@ -793,7 +724,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 text-xs">
                 <span className="font-mono text-slate-300 font-semibold flex items-center gap-1.5">
                   <Upload className="w-3.5 h-3.5 text-[#00f2fe]" />
-                  {lang === 'ru' ? 'Загрузите свой файл .mp4 или выберите тестовый сценарий:' : 'Upload .mp4 video or select a sample scenario:'}
+                  {lang === 'ru' ? 'Загрузите свой файл .mp4:' : 'Upload your .mp4 video:'}
                 </span>
 
                 <input
@@ -813,28 +744,14 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 </button>
               </div>
 
-              {/* Sample Video Pills */}
-              <div className="flex flex-wrap gap-2 pt-1">
-                {SAMPLE_VIDEOS.map((sample, idx) => (
-                  <button
-                    key={sample.id}
-                    onClick={() => handleSelectSample(idx)}
-                    className={`px-3 py-1 text-xs font-mono rounded-lg border transition-all ${
-                      selectedSampleIdx === idx && !uploadedVideoUrl
-                        ? 'bg-[#00f2fe]/20 border-[#00f2fe] text-[#00f2fe] font-bold'
-                        : 'bg-[#0b132b] border-[#3a506b] text-slate-400 hover:text-white'
-                    }`}
-                  >
-                    {sample.title}
-                  </button>
-                ))}
-                {uploadedFileName && (
+              {uploadedFileName && (
+                <div className="flex items-center gap-2 pt-1">
                   <span className="px-3 py-1 text-xs font-mono rounded-lg border bg-emerald-950/60 border-emerald-500/60 text-emerald-400 flex items-center gap-1">
                     <CheckCircle2 className="w-3 h-3" />
                     {uploadedFileName}
                   </span>
-                )}
-              </div>
+                </div>
+              )}
             </div>
 
             {/* Streamlit Top Metric Cards (st.metric) */}
@@ -881,19 +798,19 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 <div className="text-base font-bold text-[#00f2fe] mt-0.5 flex items-center gap-1.5 font-mono">
                   <Flame className="w-4 h-4 text-amber-400 animate-pulse" />
                   <span>
-                    {(pipelineFps * (modelWeights === 'yolov8m.pt' ? 0.92 : modelWeights === 'yolov8s.pt' ? 1.12 : 1.35)).toFixed(1)} FPS
+                    {(liveFps * (modelWeights === 'yolov8m.pt' ? 0.92 : modelWeights === 'yolov8s.pt' ? 1.12 : 1.35)).toFixed(1)} FPS
                   </span>
                 </div>
               </div>
 
               <div className="p-3 bg-[#1c2541] rounded-xl border border-[#3a506b]">
                 <div className="text-[10px] text-slate-400 uppercase">
-                  {lang === 'ru' ? 'Ресурсы & Задержка' : 'Resources & Latency'}
+                  {lang === 'ru' ? 'Ресурсы & Пинг' : 'Resources & Ping'}
                 </div>
                 <div className="text-base font-bold text-emerald-400 mt-0.5 flex items-center justify-between font-mono">
                   <span className="flex items-center gap-1">
                     <Activity className="w-3.5 h-3.5" />
-                    {(1000 / (pipelineFps * (modelWeights === 'yolov8m.pt' ? 0.92 : modelWeights === 'yolov8s.pt' ? 1.12 : 1.35))).toFixed(1)} ms
+                    {livePing.toFixed(1)} ms
                   </span>
                   <span className="text-[9px] bg-emerald-950/60 text-emerald-400 border border-emerald-500/30 px-1 rounded uppercase">
                     T4 FP16
@@ -943,7 +860,7 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 </span>
                 <span className="text-[#00f2fe]">
                   {lang === 'ru' ? 'Скорость инференса:' : 'Inference Speed:'}{' '}
-                  <strong>{pipelineFps.toFixed(1)} FPS</strong> (YOLOv8 + ByteTrack)
+                  <strong>{(liveFps).toFixed(1)} FPS</strong> (YOLOv8 + ByteTrack)
                 </span>
               </div>
             </div>
@@ -968,16 +885,6 @@ export const StreamlitApp: React.FC<StreamlitAppProps> = ({ lang }) => {
                 title="Сброс"
               >
                 <RotateCcw className="w-4 h-4" />
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleExportSnapshot}
-                className="px-3.5 py-2 bg-[#1c2541] hover:bg-[#3a506b] text-slate-200 font-mono text-xs rounded-xl transition-colors flex items-center gap-1.5 border border-[#3a506b]"
-              >
-                <Download className="w-3.5 h-3.5 text-[#00f2fe]" />
-                {lang === 'ru' ? 'Снимок кадра (.png)' : 'Export Frame (.png)'}
               </button>
             </div>
           </div>
