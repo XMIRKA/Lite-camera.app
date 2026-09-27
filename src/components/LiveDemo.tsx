@@ -387,18 +387,6 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
 
         // 2. Liquid Smooth 60 FPS Interpolation (runs at high fps using velocity vectors with 0 GPU cost)
         realtimeNeuralVision.updateInterpolation();
-
-        // 3. Traffic Light Auto-Cycle Engine
-        if (signalPhase === 'AUTO') {
-          autoCycleTimerRef.current = (autoCycleTimerRef.current + dt) % 25;
-          const cycleTime = autoCycleTimerRef.current;
-          let targetColor: 'GREEN' | 'YELLOW' | 'RED' = 'GREEN';
-          if (cycleTime < 12) targetColor = 'GREEN';
-          else if (cycleTime < 15) targetColor = 'YELLOW';
-          else targetColor = 'RED';
-
-          realtimeNeuralVision.setSignalOverride(1, targetColor);
-        }
       }
 
       // 4. Throttled UI State Dispatcher (Dispatches at ~3.5 FPS and only triggers React re-render when events or elements change)
@@ -664,7 +652,7 @@ export const LiveDemo: React.FC<LiveDemoProps> = ({ lang }) => {
   const handleManualSignalPhase = (phase: 'GREEN' | 'YELLOW' | 'RED' | 'AUTO') => {
     setTrafficSignalPhase(phase);
     realtimeNeuralVision.setSignalOverride(1, phase);
-    setJumpNotice(`Фаза светофоров: ${phase === 'AUTO' ? 'АВТО-ЦИКЛ (12с / 3с / 10с)' : phase}`);
+    setJumpNotice(`Режим светофоров: ${phase === 'AUTO' ? 'Оптический CV-анализ (реальный цвет с видео)' : `Ручной принудительный [${phase}]`}`);
     setTimeout(() => setJumpNotice(null), 2500);
   };
 

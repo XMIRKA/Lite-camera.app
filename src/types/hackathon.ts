@@ -66,14 +66,18 @@ export interface SampleVideoData {
 
 export interface TeamMember {
   name: string;
+  nameRu?: string;
   role: string;
+  roleRu?: string;
   contribution: string;
+  contributionRu?: string;
   bio: string;
+  bioRu?: string;
   avatarUrl: string;
   github: string;
   linkedin: string;
   portfolio: string;
-  previousProjects: { title: string; desc: string; link?: string }[];
+  previousProjects: { title: string; desc: string; titleRu?: string; descRu?: string; link?: string }[];
 }
 
 export interface AblationStudy {

@@ -25,15 +25,21 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({ isOpen, 
   const pddRules = [
     {
       titleRu: '🚦 Мульти-светофорный контроль перекрестка (ПДД 6.2 - 6.15)',
-      descRu: 'Система детектирует все светофоры в кадре и анализирует цвет каждой секции (Красный, Желтый, Зеленый). При отсутствии прямой видимости одного из светофоров его фаза логически вычисляется через матрицу бесконфликтных фаз (если Главное направление Красный ➔ Поперечное Зеленый).'
+      titleEn: '🚦 Multi-Traffic Light Intersection Control',
+      descRu: 'Система детектирует все светофоры в кадре и анализирует цвет каждой секции (Красный, Желтый, Зеленый). При отсутствии прямой видимости одного из светофоров его фаза логически вычисляется через матрицу бесконфликтных фаз (если Главное направление Красный ➔ Поперечное Зеленый).',
+      descEn: 'The system detects all traffic lights in frame and analyzes each section color (Red, Yellow, Green). If a light is occluded, its phase is logically calculated via interlock phase matrix.'
     },
     {
       titleRu: '📐 Математический расчет скорости (Homography / IPM)',
-      descRu: 'Скорость рассчитывается по проективному преобразованию контакта колес с дорогой в метры без синтетических рамок (v = Δd / Δt * 3.6 км/ч).'
+      titleEn: '📐 Mathematical Speed Calculation (Homography / IPM)',
+      descRu: 'Скорость рассчитывается по проективному преобразованию контакта колес с дорогой в метры без синтетических рамок (v = Δd / Δt * 3.6 км/ч).',
+      descEn: 'Vehicle speed is computed via Inverse Perspective Mapping ground wheel plane projections (v = Δd / Δt * 3.6 km/h).'
     },
     {
       titleRu: '⚠️ Детекция сплошных и опасных сближений (TTC)',
-      descRu: 'Пересечение сплошной фиксируется векторным пересечением 2D отрезков колес с разметкой. Опасность столкновения рассчитывается по Time-To-Collision (TTC < 1.8с).'
+      titleEn: '⚠️ Solid Line Violation & Proximity Hazards (TTC)',
+      descRu: 'Пересечение сплошной фиксируется векторным пересечением 2D отрезков колес с разметкой. Опасность столкновения рассчитывается по Time-To-Collision (TTC < 1.8с).',
+      descEn: 'Solid line crossings use 2D vector segment intersection. Collision hazard is predicted via Time-To-Collision (TTC < 1.8s).'
     }
   ];
 
@@ -102,10 +108,10 @@ export const ShortcutsHelpModal: React.FC<ShortcutsHelpModalProps> = ({ isOpen, 
                 <div key={idx} className="bg-slate-950/70 border border-slate-800 rounded-xl p-3 space-y-1">
                   <div className="font-bold text-cyan-300 flex items-center gap-1.5">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>{rule.titleRu}</span>
+                    <span>{lang === 'ru' ? rule.titleRu : rule.titleEn}</span>
                   </div>
                   <p className="text-slate-400 leading-relaxed text-[11px]">
-                    {rule.descRu}
+                    {lang === 'ru' ? rule.descRu : rule.descEn}
                   </p>
                 </div>
               ))}

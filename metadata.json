@@ -1,7 +1,4 @@
 {
-  "name": "WIUT Hackathon 2026 - Traffic Event & Accident Anticipation Platform",
-  "description": "Production-grade system and team submission platform for WIUT Hackathon 2026 CV Track: 14-class traffic event detection, causal accident anticipation, interactive video player, EDA, and starter kit repository.",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "name": "VisionForce PDD Studio",
+  "description": "Interactive Traffic Infrastructure & Enforcement Studio with Computer Vision, Traffic Light Optical Inspection, and PDD Violation Analysis."
 }
-

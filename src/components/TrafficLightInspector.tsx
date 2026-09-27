@@ -4,14 +4,8 @@ import {
   Pause,
   RotateCcw,
   Upload,
-  Crosshair,
   Zap,
-  Activity,
-  CheckCircle2,
-  AlertCircle,
   Sparkles,
-  Layers,
-  Eye,
   Info
 } from 'lucide-react';
 
@@ -31,7 +25,7 @@ export interface ZonePixelStats {
 }
 
 /**
- * Converts RGBA [0..255] to HSV (H: 0..180 degrees OpenCV scale, S: 0..1, V: 0..1)
+ * Преобразование RGBA [0..255] в HSV (H: 0..180 шкала OpenCV, S: 0..1, V: 0..1)
  */
 export function rgbToHsvOpenCV(r: number, g: number, b: number): { h: number; s: number; v: number } {
   const rf = r / 255;
@@ -58,7 +52,7 @@ export function rgbToHsvOpenCV(r: number, g: number, b: number): { h: number; s:
         h = (rf - gf) / d + 4;
         break;
     }
-    h = (h / 6) * 180; // 0..180 scale
+    h = (h / 6) * 180;
   }
 
   return { h, s, v };
@@ -67,19 +61,16 @@ export function rgbToHsvOpenCV(r: number, g: number, b: number): { h: number; s:
 export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
   sampleVideoUrl = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4'
 }) => {
-  // Media & Video State
   const [videoSrc, setVideoUrl] = useState<string>(sampleVideoUrl);
-  const [videoName, setVideoName] = useState<string>('Sample Traffic Video (.mp4)');
+  const [videoName, setVideoName] = useState<string>('Образец видеопотока (.mp4)');
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [fps, setFps] = useState<number>(0);
 
-  // ROI Mouse Selection State: normalized [x1, y1, x2, y2] in 0..1 scale
   const [roi, setRoi] = useState<[number, number, number, number] | null>([0.68, 0.12, 0.76, 0.38]);
   const [isDrawing, setIsDrawing] = useState<boolean>(false);
   const [drawStart, setDrawStart] = useState<{ x: number; y: number } | null>(null);
   const [drawCurrent, setDrawCurrent] = useState<{ x: number; y: number } | null>(null);
 
-  // Analysis Metrics State
   const [stats, setStats] = useState<ZonePixelStats>({
     redZoneCount: 0,
     yellowZoneCount: 0,
@@ -89,7 +80,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
     confidence: 0
   });
 
-  // Element Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -98,9 +88,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
   const lastTimeRef = useRef<number>(performance.now());
   const frameCountRef = useRef<number>(0);
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // 1. HSV PIXELsamPLING & 3-ZONE VERTICAL ANALYSIS ENGINE
-  // ══════════════════════════════════════════════════════════════════════════
   const analyzeCropArea = useCallback(
     (video: HTMLVideoElement, cropCanvas: HTMLCanvasElement, bbox: [number, number, number, number]): ZonePixelStats => {
       const ctx = cropCanvas.getContext('2d', { willReadFrequently: true });
@@ -135,9 +122,9 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
         const zoneHeight = cropH / 3;
 
         for (let y = 0; y < cropH; y++) {
-          const isTopZone = y < zoneHeight;              // Upper third: RED
-          const isMidZone = y >= zoneHeight && y < zoneHeight * 2; // Middle third: YELLOW
-          const isBotZone = y >= zoneHeight * 2;          // Lower third: GREEN
+          const isTopZone = y < zoneHeight;
+          const isMidZone = y >= zoneHeight && y < zoneHeight * 2;
+          const isBotZone = y >= zoneHeight * 2;
 
           for (let x = 0; x < cropW; x++) {
             const idx = (y * cropW + x) * 4;
@@ -147,19 +134,16 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
 
             const { h, s, v } = rgbToHsvOpenCV(r, g, b);
 
-            // WASHOUT GLARE PROTECTION:
-            // Ignore pixels with low saturation and high value (sunlight reflections on glass)
+            // WASHOUT GLARE PROTECTION
             if (s < 0.35 && v > 0.50) {
               continue;
             }
 
-            // Minimum brightness threshold
             if (v < 0.15) {
               continue;
             }
 
-            // HUE RANGE FILTERING (H in 0..180 scale)
-            // A. Red Hue: 0..15 and 165..180
+            // HUE RANGE FILTERING
             const isRedHue = (h >= 0 && h <= 15) || (h >= 165 && h <= 180);
             if (isRedHue && isTopZone) {
               redZoneCount++;
@@ -167,7 +151,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
               continue;
             }
 
-            // B. Yellow Hue: 20..35
             const isYellowHue = h >= 20 && h <= 35;
             if (isYellowHue && isMidZone) {
               yellowZoneCount++;
@@ -175,7 +158,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
               continue;
             }
 
-            // C. Green Hue: 40..85
             const isGreenHue = h >= 40 && h <= 85;
             if (isGreenHue && isBotZone) {
               greenZoneCount++;
@@ -185,10 +167,9 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
           }
         }
 
-        // Active State Decision Rule
         let activeState: SignalState = 'ANALYZING';
-        let maxCount = Math.max(redZoneCount, yellowZoneCount, greenZoneCount);
-        let confidence = totalValidPixels > 0 ? Math.min(0.99, (maxCount / totalValidPixels) * 0.75 + 0.25) : 0;
+        const maxCount = Math.max(redZoneCount, yellowZoneCount, greenZoneCount);
+        const confidence = totalValidPixels > 0 ? Math.min(0.99, (maxCount / totalValidPixels) * 0.75 + 0.25) : 0;
 
         if (totalValidPixels >= 4 && maxCount > 2) {
           if (maxCount === redZoneCount) activeState = 'RED';
@@ -211,9 +192,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
     []
   );
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // 2. MAIN 60 FPS requestAnimationFrame LOOP & CANVAS RENDER
-  // ══════════════════════════════════════════════════════════════════════════
   useEffect(() => {
     if (!cropCanvasRef.current) {
       cropCanvasRef.current = document.createElement('canvas');
@@ -240,13 +218,11 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
 
           let currentStats = stats;
 
-          // A. Perform Optical Pixel Analysis on Active ROI
           if (roi && video.readyState >= 2) {
             currentStats = analyzeCropArea(video, cropCanvasRef.current!, roi);
             setStats(currentStats);
           }
 
-          // B. Draw Active ROI Box & HUD Overlay
           if (roi) {
             const [x1, y1, x2, y2] = roi;
             const rx = Math.min(x1, x2) * w;
@@ -273,7 +249,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
                 ? '🟢 GREEN'
                 : '🔍 АНАЛИЗ ФАЗЫ...';
 
-            // 1. Neon Glowing Outer Frame
             ctx.save();
             ctx.shadowColor = activeColor;
             ctx.shadowBlur = 16;
@@ -292,22 +267,16 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
             ctx.strokeRect(rx, ry, rw, rh);
             ctx.restore();
 
-            // 2. Corner Bracket Accents
             const cLen = Math.min(14, Math.min(rw, rh) * 0.25);
             ctx.strokeStyle = '#ffffff';
             ctx.lineWidth = 2.5;
             ctx.beginPath();
-            // Top-Left
             ctx.moveTo(rx, ry + cLen); ctx.lineTo(rx, ry); ctx.lineTo(rx + cLen, ry);
-            // Top-Right
             ctx.moveTo(rx + rw - cLen, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + cLen);
-            // Bottom-Right
             ctx.moveTo(rx + rw, ry + rh - cLen); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw - cLen, ry + rh);
-            // Bottom-Left
             ctx.moveTo(rx + cLen, ry + rh); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx, ry + rh - cLen);
             ctx.stroke();
 
-            // 3. 3-Zone Dashed Dividers inside ROI
             ctx.save();
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
             ctx.lineWidth = 1;
@@ -320,7 +289,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
             ctx.stroke();
             ctx.restore();
 
-            // 4. State Header HUD Badge
             ctx.font = 'bold 13px JetBrains Mono, monospace';
             const badgeW = Math.max(rw, ctx.measureText(stateText).width + 16);
             const badgeY = ry > 32 ? ry - 28 : ry + rh + 8;
@@ -335,7 +303,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
             ctx.fillText(stateText, rx + 8, badgeY + 16);
           }
 
-          // C. Draw Mouse Drawing Interactive Box
           if (isDrawing && drawStart && drawCurrent) {
             const rx1 = Math.min(drawStart.x, drawCurrent.x) * w;
             const ry1 = Math.min(drawStart.y, drawCurrent.y) * h;
@@ -363,9 +330,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
     };
   }, [roi, isDrawing, drawStart, drawCurrent, analyzeCropArea]);
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // 3. MOUSE DRAWING HANDLERS
-  // ══════════════════════════════════════════════════════════════════════════
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -449,7 +413,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
           </p>
         </div>
 
-        {/* Toolbar */}
         <div className="flex items-center gap-2">
           <button
             onClick={togglePlay}
@@ -478,9 +441,7 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
         </div>
       </div>
 
-      {/* Main Grid: Video Viewport & Stats Panel */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Viewport Area */}
         <div className="lg:col-span-8 bg-slate-950 rounded-xl border border-slate-800 overflow-hidden relative group shadow-xl">
           <div className="relative aspect-video w-full bg-slate-950 flex items-center justify-center overflow-hidden">
             <video
@@ -506,16 +467,13 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
             />
           </div>
 
-          {/* Bottom Banner */}
           <div className="px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono">
             <span className="truncate max-w-xs">{videoName}</span>
             <span>{roi ? `ROI: [${roi.map(v => v.toFixed(2)).join(', ')}]` : 'Зажмите ЛКМ и обведите светофор'}</span>
           </div>
         </div>
 
-        {/* Side Metrics Panel */}
         <div className="lg:col-span-4 space-y-4">
-          {/* Active State Card */}
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 shadow-lg">
             <span className="text-xs font-mono text-slate-400 font-bold block">АКТИВНАЯ ФАЗА СВЕТОФОРА</span>
 
@@ -547,11 +505,9 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
               <Sparkles className="w-8 h-8 opacity-80" />
             </div>
 
-            {/* 3-Zone Histogram Bars */}
             <div className="space-y-2 pt-2 border-t border-slate-800 font-mono text-xs">
               <span className="text-[11px] text-slate-400 block font-bold">ПОПИКСЕЛЬНОЕ РАСПРЕДЕЛЕНИЕ 3-Х ЗОН:</span>
 
-              {/* Red Zone */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-red-400 font-bold">Верхняя зона (Красный):</span>
@@ -567,7 +523,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
                 </div>
               </div>
 
-              {/* Yellow Zone */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-amber-400 font-bold">Средняя зона (Жёлтый):</span>
@@ -583,7 +538,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
                 </div>
               </div>
 
-              {/* Green Zone */}
               <div className="space-y-1">
                 <div className="flex justify-between text-[11px]">
                   <span className="text-emerald-400 font-bold">Нижняя зона (Зелёный):</span>
@@ -601,7 +555,6 @@ export const TrafficLightInspector: React.FC<TrafficLightInspectorProps> = ({
             </div>
           </div>
 
-          {/* Algorithm Spec Info */}
           <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs font-mono space-y-2 text-slate-400">
             <div className="flex items-center gap-1.5 text-cyan-400 font-bold">
               <Info className="w-4 h-4" />

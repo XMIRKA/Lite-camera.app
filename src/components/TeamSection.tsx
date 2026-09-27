@@ -72,21 +72,21 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ lang }) => {
                   <div
                     className={`w-16 h-16 rounded-2xl bg-gradient-to-tr ${gradient} flex items-center justify-center font-mono font-extrabold text-xl text-white shadow-lg shrink-0 border border-white/20`}
                   >
-                    {getInitials(member.name)}
+                    {getInitials(lang === 'ru' && member.nameRu ? member.nameRu : member.name)}
                   </div>
                   <div className="pr-16">
                     <h3 className="text-lg font-bold text-white leading-tight">
-                      {member.name}
+                      {lang === 'ru' && member.nameRu ? member.nameRu : member.name}
                     </h3>
                     <span className="text-xs font-mono text-cyan-400 block mt-1 font-semibold">
-                      {member.role}
+                      {lang === 'ru' && member.roleRu ? member.roleRu : member.role}
                     </span>
                   </div>
                 </div>
 
                 {/* Bio */}
-                <p className="text-xs text-slate-300 leading-relaxed font-sans">
-                  {member.bio}
+                <p className="text-xs text-slate-300 leading-relaxed font-sans whitespace-pre-line">
+                  {lang === 'ru' && member.bioRu ? member.bioRu : member.bio}
                 </p>
 
                 {/* Engineering Contribution */}
@@ -96,7 +96,7 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ lang }) => {
                     {lang === 'ru' ? 'Вклад в проект' : 'Project Contribution'}
                   </span>
                   <p className="text-xs text-slate-300 font-sans leading-relaxed">
-                    {member.contribution}
+                    {lang === 'ru' && member.contributionRu ? member.contributionRu : member.contribution}
                   </p>
                 </div>
 
@@ -114,10 +114,10 @@ export const TeamSection: React.FC<TeamSectionProps> = ({ lang }) => {
                       >
                         <strong className="text-cyan-300 font-mono block text-[11px] flex items-center gap-1">
                           <Sparkles className="w-3 h-3 text-cyan-400" />
-                          {proj.title}
+                          {lang === 'ru' && proj.titleRu ? proj.titleRu : proj.title}
                         </strong>
                         <span className="text-slate-400 text-[11px] leading-tight block mt-0.5">
-                          {proj.desc}
+                          {lang === 'ru' && proj.descRu ? proj.descRu : proj.desc}
                         </span>
                       </div>
                     ))}
